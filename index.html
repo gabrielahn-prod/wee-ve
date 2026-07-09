@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weeve | 나만의 비밀 데이트코스 공유하기</title>
+<meta name="description" content="우리만 아는 데이트 코스를 예쁜 카드로 만들어 인스타 스토리에 공유해보세요." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800;900&family=Gaegu:wght@700&display=swap" rel="stylesheet" />
+<!-- API 키 설정 파일 (config.js가 없어도 데모 모드로 동작) -->
+<script>window.APP_CONFIG = window.APP_CONFIG || {};</script>
+<script src="config.js" onerror="console.warn('config.js 없음 — 데모 모드로 동작합니다.')"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --rose: #FF5D7A;
+    --rose-dark: #E23F5E;
+    --rose-light: #FFE3EA;
+    --cream: #FFF8F3;
+    --gold: #E8AA3D;
+    --gold-light: #FFF3DC;
+    --ink: #3A2E2A;
+    --ink-soft: #8A7A73;
+    --white: #ffffff;
+    --gray-100: #f3f1ef;
+    --gray-200: #e8e3df;
+    --gray-400: #b3a89f;
+    --shadow: 0 10px 30px rgba(58,46,42,.10);
+    --shadow-lg: 0 20px 50px rgba(58,46,42,.16);
+    --radius: 18px;
+    --radius-sm: 12px;
+  }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Noto Sans KR', sans-serif; background: var(--cream); color: var(--ink); line-height: 1.6; }
+  .accent-font { font-family: 'Gaegu', sans-serif; }
+
+  /* ── NAV ── */
+  nav { position: sticky; top: 0; z-index: 100; background: rgba(255,248,243,.9); backdrop-filter: blur(10px); border-bottom: 1px solid var(--gray-200); padding: 0 20px; }
+  .nav-inner { max-width: 1040px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 62px; }
+  .logo { display: flex; align-items: center; gap: 8px; text-decoration: none; color: var(--ink); }
+  .logo-icon { width: 32px; height: 32px; border-radius: 9px; background: linear-gradient(135deg, var(--rose), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .logo-text { font-size: 18px; font-weight: 800; }
+  .nav-link { font-size: 14px; font-weight: 700; color: var(--rose-dark); text-decoration: none; padding: 8px 16px; border-radius: 99px; background: var(--rose-light); }
+
+  /* ── HERO ── */
+  .hero { max-width: 1040px; margin: 0 auto; padding: 56px 20px 40px; display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
+  .hero-tag { display: inline-flex; align-items: center; gap: 6px; background: var(--gold-light); color: #9C6B12; font-size: 13px; font-weight: 700; padding: 6px 14px; border-radius: 99px; margin-bottom: 18px; }
+  .hero h1 { font-size: 38px; font-weight: 900; line-height: 1.32; margin-bottom: 16px; }
+  .hero h1 span { color: var(--rose); }
+  .hero p { font-size: 15.5px; color: var(--ink-soft); margin-bottom: 26px; max-width: 460px; }
+  .btn-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--rose); color: white; border: none; padding: 15px 26px; border-radius: 99px; font-family: inherit; font-size: 15.5px; font-weight: 800; cursor: pointer; box-shadow: var(--shadow); transition: transform .15s, box-shadow .15s; text-decoration: none; }
+  .btn-cta:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+  .hero-preview { display: flex; justify-content: center; }
+  .hero-preview canvas { width: 100%; max-width: 280px; border-radius: 22px; box-shadow: var(--shadow-lg); }
+
+  /* ── SECTION SHELL ── */
+  section.block { max-width: 720px; margin: 0 auto; padding: 20px 20px 60px; }
+  .card { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--gray-200); padding: 28px 26px; }
+  .card + .card { margin-top: 18px; }
+  .step-label { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 800; color: var(--rose-dark); text-transform: uppercase; letter-spacing: .04em; margin-bottom: 16px; }
+  .step-num { width: 22px; height: 22px; border-radius: 50%; background: var(--rose); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+
+  label.field-label { display: block; font-size: 13.5px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+  .field { margin-bottom: 18px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  input[type=text], input[type=email], input[type=time] {
+    width: 100%; padding: 12px 14px; border-radius: var(--radius-sm); border: 1.5px solid var(--gray-200);
+    font-family: inherit; font-size: 14.5px; outline: none; transition: border-color .15s; background: var(--white);
+  }
+  input:focus { border-color: var(--rose); }
+  .hint { font-size: 12px; color: var(--gray-400); margin-top: 5px; }
+
+  /* place rows */
+  .place-row { display: flex; gap: 12px; align-items: flex-start; background: var(--cream); border: 1.5px solid var(--gray-200); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 12px; }
+  .place-order { width: 30px; height: 30px; border-radius: 50%; background: var(--gold); color: white; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 4px; }
+  .place-photo-wrap { position: relative; width: 68px; height: 68px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: var(--gray-200); cursor: pointer; border: 1.5px dashed var(--gray-400); }
+  .place-photo-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .place-photo-wrap input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .place-photo-empty { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 20px; color: var(--gray-400); pointer-events: none; }
+  .place-fields { flex: 1; }
+  .place-fields input { margin-bottom: 6px; }
+  .btn-remove-place { background: none; border: none; color: var(--gray-400); font-size: 18px; cursor: pointer; padding: 4px 6px; flex-shrink: 0; }
+  .btn-remove-place:hover { color: var(--rose-dark); }
+  .btn-add-place { width: 100%; padding: 12px; border-radius: var(--radius-sm); border: 1.5px dashed var(--rose); background: var(--rose-light); color: var(--rose-dark); font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+  .btn-add-place:hover { background: #ffd3dd; }
+  .btn-add-place:disabled { opacity: .5; cursor: not-allowed; }
+
+  /* consent */
+  .consent-box { background: var(--gray-100); border-radius: var(--radius-sm); padding: 14px 16px; margin-bottom: 14px; }
+  .consent-row { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; cursor: pointer; }
+  .consent-row input { margin-top: 3px; }
+  .consent-detail { font-size: 12px; color: var(--ink-soft); margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--gray-200); display: none; line-height: 1.7; }
+  .consent-detail.show { display: block; }
+  .consent-toggle { font-size: 12px; color: var(--rose-dark); font-weight: 700; cursor: pointer; text-decoration: underline; margin-left: 4px; }
+
+  .btn-submit { width: 100%; padding: 16px; border-radius: 99px; background: var(--rose); color: white; border: none; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer; transition: background .15s; }
+  .btn-submit:hover { background: var(--rose-dark); }
+  .btn-submit:disabled { background: var(--gray-400); cursor: not-allowed; }
+  .form-error { font-size: 13px; color: var(--rose-dark); margin-top: 10px; display: none; font-weight: 600; }
+
+  /* result */
+  #result-section { display: none; }
+  .result-canvas-wrap { display: flex; justify-content: center; margin-bottom: 20px; }
+  #card-canvas { width: 100%; max-width: 340px; border-radius: 20px; box-shadow: var(--shadow-lg); }
+  .result-actions { display: flex; gap: 10px; }
+  .btn-action { flex: 1; padding: 14px; border-radius: var(--radius-sm); border: none; font-family: inherit; font-size: 14.5px; font-weight: 800; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px; }
+  .btn-download { background: var(--ink); color: white; }
+  .btn-share { background: var(--rose); color: white; }
+  .btn-again { display: block; width: 100%; text-align: center; margin-top: 12px; background: none; border: none; color: var(--ink-soft); font-size: 13px; text-decoration: underline; cursor: pointer; font-family: inherit; }
+  .save-status { font-size: 12.5px; text-align: center; margin-top: 14px; color: var(--ink-soft); }
+
+  footer { text-align: center; padding: 40px 20px 60px; color: var(--ink-soft); font-size: 13px; }
+  footer a { color: var(--rose-dark); font-weight: 700; text-decoration: none; }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--ink); color: white; padding: 11px 22px; border-radius: 99px; font-size: 13px; font-weight: 600; transition: transform .3s; z-index: 999; max-width: 90vw; text-align: center; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 720px) {
+    .hero { grid-template-columns: 1fr; padding-top: 32px; }
+    .hero h1 { font-size: 30px; }
+    .hero-preview { order: -1; }
+    .field-row { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="logo" href="/">
+      <div class="logo-icon">🔒</div>
+      <div class="logo-text">Weeve</div>
+    </a>
+    <a class="nav-link" href="waitlist.html">앱 출시 알림 받기</a>
+  </div>
+</nav>
+
+<div class="hero">
+  <div>
+    <span class="hero-tag">✨ 나만의 비밀 데이트코스</span>
+    <h1>남들은 모르는<br>우리만의 코스, <span>몰래 자랑</span>해볼까?</h1>
+    <p>지하철역, 만난 시각, 다녀온 장소 순서만 입력하면 인스타 스토리에 딱 맞는 카드가 완성돼요. 앱 없이 지금 바로 만들어보세요.</p>
+    <a class="btn-cta" href="#builder">🔒 내 비밀 코스 만들기</a>
+  </div>
+  <div class="hero-preview">
+    <canvas id="hero-canvas" width="1080" height="1920"></canvas>
+  </div>
+</div>
+
+<section class="block" id="builder">
+  <div class="card">
+    <div class="step-label"><span class="step-num">1</span> 우리 코스 기본 정보</div>
+    <div class="field">
+      <label class="field-label">닉네임 (카드에 "OO의 데이트 코스"로 표시돼요)</label>
+      <input type="text" id="f-nickname" maxlength="12" placeholder="예: 지은이" />
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">만난 지하철역</label>
+        <input type="text" id="f-station" list="station-list" placeholder="예: 성수역" />
+        <datalist id="station-list">
+          <option value="성수역"></option><option value="홍대입구역"></option><option value="강남역"></option>
+          <option value="건대입구역"></option><option value="합정역"></option><option value="이태원역"></option>
+          <option value="연남동"></option><option value="을지로3가역"></option><option value="한남역"></option>
+          <option value="신촌역"></option><option value="여의나루역"></option><option value="잠실역"></option>
+        </datalist>
+      </div>
+      <div></div>
+    </div>
+    <div class="field-row">
+      <div class="field">
+        <label class="field-label">만난 시각</label>
+        <input type="time" id="f-meet-time" value="14:00" />
+      </div>
+      <div class="field">
+        <label class="field-label">헤어진 시각</label>
+        <input type="time" id="f-end-time" value="21:00" />
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="step-label"><span class="step-num">2</span> 다녀온 장소 (순서대로)</div>
+    <div id="places-list"></div>
+    <button class="btn-add-place" id="btn-add-place" type="button">+ 장소 추가하기</button>
+    <p class="hint" id="place-count-hint"></p>
+  </div>
+
+  <div class="card">
+    <div class="step-label"><span class="step-num">3</span> 동의 &amp; 완료</div>
+    <div class="consent-box">
+      <label class="consent-row">
+        <input type="checkbox" id="f-consent" />
+        <span>(필수) 개인정보 수집·이용에 동의합니다.
+          <span class="consent-toggle" id="consent-toggle-btn">자세히 보기</span>
+        </span>
+      </label>
+      <div class="consent-detail" id="consent-detail">
+        <strong>수집 항목</strong> 닉네임, 지하철역, 만난/헤어진 시각, 장소명, 업로드한 사진, (선택 입력 시) 이메일<br>
+        <strong>수집 목적</strong> 코스 카드 생성 및 공유 서비스 제공, 서비스 개선을 위한 통계 분석, 앱 출시 시 시드 콘텐츠 및 출시 알림 발송(이메일을 남긴 경우에 한함)<br>
+        <strong>보유 기간</strong> 서비스 운영 기간 동안 보관하며 삭제 요청 시 지체 없이 파기<br>
+        동의를 거부할 수 있으며, 거부 시 카드 생성 및 데이터 저장 서비스 이용이 제한될 수 있습니다.
+      </div>
+    </div>
+    <div class="field">
+      <label class="field-label">이메일 (선택 — 앱 출시 소식을 가장 먼저 알려드려요)</label>
+      <input type="email" id="f-email" placeholder="you@example.com" />
+    </div>
+    <button class="btn-submit" id="btn-submit" type="button">🔒 비밀 코스 카드 만들기</button>
+    <p class="form-error" id="form-error"></p>
+  </div>
+</section>
+
+<section class="block" id="result-section">
+  <div class="card">
+    <div class="step-label">🎉 카드가 완성됐어요</div>
+    <div class="result-canvas-wrap">
+      <canvas id="card-canvas" width="1080" height="1920"></canvas>
+    </div>
+    <div class="result-actions">
+      <button class="btn-action btn-download" id="btn-download">⬇ 이미지 다운로드</button>
+      <button class="btn-action btn-share" id="btn-share">📤 인스타로 공유하기</button>
+    </div>
+    <button class="btn-again" id="btn-again">다른 코스로 다시 만들기</button>
+    <p class="save-status" id="save-status"></p>
+  </div>
+</section>
+
+<footer>
+  <div><span class="logo-icon" style="display:inline-flex;vertical-align:middle;margin-right:6px;">🔒</span><strong>Weeve</strong> — 광고 없는 솔직한 데이트 코스 기록</div>
+  <div style="margin-top:8px;">앱 출시가 궁금하다면 <a href="waitlist.html">사전예약 페이지</a>에서 미리 알림을 받아보세요.</div>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ══════════════════════════ 설정 & 클라이언트 ══════════════════════════ */
+const CFG = window.APP_CONFIG || {};
+const supabaseClient = (CFG.SUPABASE_URL && CFG.SUPABASE_ANON_KEY && window.supabase)
+  ? window.supabase.createClient(CFG.SUPABASE_URL, CFG.SUPABASE_ANON_KEY)
+  : null;
+
+const DEMO_PHOTOS = [
+  'assets/demo/place-cafe.svg',
+  'assets/demo/place-restaurant.svg',
+  'assets/demo/place-dessert.svg',
+  'assets/demo/place-exhibit.svg',
+  'assets/demo/place-walk.svg',
+  'assets/demo/place-photobooth.svg',
+];
+const MAX_PLACES = 8;
+
+/* UTM 캡처 */
+const urlParams = new URLSearchParams(location.search);
+const UTM = {
+  utm_source: urlParams.get('utm_source') || null,
+  utm_medium: urlParams.get('utm_medium') || null,
+  utm_campaign: urlParams.get('utm_campaign') || null,
+};
+
+/* ══════════════════════════ 장소 입력 상태 ══════════════════════════ */
+let places = []; // { name, file, previewUrl, img (HTMLImageElement|null) }
+
+function addPlace() {
+  if (places.length >= MAX_PLACES) return;
+  places.push({ name: '', file: null, previewUrl: null, img: null });
+  renderPlaces();
+}
+
+function removePlace(idx) {
+  places.splice(idx, 1);
+  renderPlaces();
+}
+
+function renderPlaces() {
+  const list = document.getElementById('places-list');
+  list.innerHTML = places.map((p, i) => `
+    <div class="place-row">
+      <div class="place-order">${i + 1}</div>
+      <div class="place-photo-wrap" title="사진 업로드">
+        ${p.previewUrl ? `<img src="${p.previewUrl}" />` : `<div class="place-photo-empty">📷</div>`}
+        <input type="file" accept="image/*" onchange="onPlacePhoto(${i}, this.files[0])" />
+      </div>
+      <div class="place-fields">
+        <input type="text" placeholder="장소 이름 (예: 어니언 성수)" value="${esc(p.name)}"
+          oninput="places[${i}].name = this.value" maxlength="20" />
+        <p class="hint">사진을 올리지 않으면 데모 이미지로 대체돼요</p>
+      </div>
+      <button class="btn-remove-place" onclick="removePlace(${i})" type="button">✕</button>
+    </div>
+  `).join('');
+  document.getElementById('btn-add-place').disabled = places.length >= MAX_PLACES;
+  document.getElementById('place-count-hint').textContent =
+    `${places.length}/${MAX_PLACES}개 장소 · 카드에 순서대로 표시돼요`;
+}
+
+function onPlacePhoto(idx, file) {
+  if (!file) return;
+  places[idx].file = file;
+  places[idx].previewUrl = URL.createObjectURL(file);
+  places[idx].img = null; // 다시 로드하도록 리셋
+  renderPlaces();
+}
+
+/* ══════════════════════════ 유틸 ══════════════════════════ */
+function esc(s) { return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = reject;
+    img.src = src;
+  });
+}
+let toastT;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+/* ══════════════════════════ 카드(캔버스) 렌더링 ══════════════════════════ */
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.arcTo(x + w, y, x + w, y + h, r);
+  ctx.arcTo(x + w, y + h, x, y + h, r);
+  ctx.arcTo(x, y + h, x, y, r);
+  ctx.arcTo(x, y, x + w, y, r);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, maxWidth) {
+  const chars = String(text).split('');
+  const lines = [];
+  let line = '';
+  for (const ch of chars) {
+    const test = line + ch;
+    if (ctx.measureText(test).width > maxWidth && line) {
+      lines.push(line);
+      line = ch;
+    } else {
+      line = test;
+    }
+  }
+  if (line) lines.push(line);
+  return lines;
+}
+
+async function drawCard(canvas, data) {
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+
+  // 배경 그라디언트
+  const bg = ctx.createLinearGradient(0, 0, W, H);
+  bg.addColorStop(0, '#FFF3E9');
+  bg.addColorStop(0.55, '#FFE7EC');
+  bg.addColorStop(1, '#FFD9E4');
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // 은은한 원형 장식
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.beginPath(); ctx.arc(W - 80, 120, 160, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(60, H - 160, 130, 0, Math.PI * 2); ctx.fill();
+
+  // 브랜드 태그
+  ctx.fillStyle = 'rgba(255,255,255,.85)';
+  roundRect(ctx, 60, 60, 240, 56, 28); ctx.fill();
+  ctx.fillStyle = '#E23F5E';
+  ctx.font = '700 30px "Noto Sans KR", sans-serif';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🔒 비밀 데이트코스', 88, 90);
+
+  // 타이틀
+  ctx.fillStyle = '#3A2E2A';
+  ctx.font = '900 76px "Noto Sans KR", sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  const title = `${data.nickname || '익명'}의 데이트 코스`;
+  const titleLines = wrapText(ctx, title, W - 120);
+  let ty = 230;
+  titleLines.slice(0, 2).forEach(l => { ctx.fillText(l, 60, ty); ty += 86; });
+
+  // 정보 배지 (역 / 시간)
+  ctx.font = '700 32px "Noto Sans KR", sans-serif';
+  const badgeY = ty + 20;
+  const badges = [];
+  if (data.station) badges.push('📍 ' + data.station);
+  if (data.meetTime || data.endTime) badges.push(`🕐 ${data.meetTime || '?'} ~ ${data.endTime || '?'}`);
+  let bx = 60;
+  badges.forEach(b => {
+    const tw = ctx.measureText(b).width + 44;
+    ctx.fillStyle = 'rgba(255,255,255,.85)';
+    roundRect(ctx, bx, badgeY, tw, 62, 31); ctx.fill();
+    ctx.fillStyle = '#3A2E2A';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(b, bx + 22, badgeY + 32);
+    bx += tw + 14;
+  });
+
+  // 타임라인 (장소 목록)
+  const topY = badgeY + 110;
+  const bottomY = H - 210;
+  const places = data.places.filter(p => p.name || p.img);
+  const n = Math.max(places.length, 1);
+  const lineX = 130;
+  const rowH = (bottomY - topY) / n;
+
+  // 점선 세로선
+  ctx.strokeStyle = 'rgba(58,46,42,.28)';
+  ctx.lineWidth = 4;
+  ctx.setLineDash([2, 16]);
+  ctx.beginPath();
+  ctx.moveTo(lineX, topY + rowH * 0.5);
+  ctx.lineTo(lineX, topY + rowH * (n - 0.5));
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  for (let i = 0; i < places.length; i++) {
+    const p = places[i];
+    const cy = topY + rowH * (i + 0.5);
+    const photoSize = Math.min(rowH - 34, 210);
+    const px = lineX - photoSize / 2;
+    const py = cy - photoSize / 2;
+    const rot = (i % 2 === 0 ? -1 : 1) * 0.045;
+
+    // 번호 배지 (선 위)
+    ctx.fillStyle = '#E8AA3D';
+    ctx.beginPath(); ctx.arc(lineX, cy - photoSize / 2 - 26, 26, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'white';
+    ctx.font = '800 26px "Noto Sans KR", sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(String(i + 1), lineX, cy - photoSize / 2 - 25);
+    ctx.textAlign = 'left';
+
+    // 폴라로이드 사진
+    ctx.save();
+    ctx.translate(lineX, cy);
+    ctx.rotate(rot);
+    ctx.fillStyle = '#ffffff';
+    roundRect(ctx, -photoSize / 2 - 10, -photoSize / 2 - 10, photoSize + 20, photoSize + 20, 14);
+    ctx.shadowColor = 'rgba(58,46,42,.25)'; ctx.shadowBlur = 20; ctx.shadowOffsetY = 8;
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+    if (p.img) {
+      ctx.save();
+      roundRect(ctx, -photoSize / 2, -photoSize / 2, photoSize, photoSize, 8);
+      ctx.clip();
+      // cover-fit
+      const ir = p.img.width / p.img.height, tr = 1;
+      let dw = photoSize, dh = photoSize, dx = -photoSize / 2, dy = -photoSize / 2;
+      if (ir > tr) { dh = photoSize; dw = photoSize * ir; dx = -dw / 2; }
+      else { dw = photoSize; dh = photoSize / ir; dy = -dh / 2; }
+      ctx.drawImage(p.img, dx, dy, dw, dh);
+      ctx.restore();
+    }
+    ctx.restore();
+
+    // 장소명
+    ctx.fillStyle = '#3A2E2A';
+    ctx.font = '700 40px "Noto Sans KR", sans-serif';
+    ctx.textBaseline = 'middle';
+    const nameLines = wrapText(ctx, p.name || '이름 없는 장소', W - (lineX + photoSize / 2 + 60) - 60);
+    const startY = cy - (nameLines.length - 1) * 24;
+    nameLines.slice(0, 2).forEach((l, li) => {
+      ctx.fillText(l, lineX + photoSize / 2 + 50, startY + li * 48);
+    });
+  }
+
+  // 하단 워터마크
+  ctx.fillStyle = 'rgba(58,46,42,.7)';
+  ctx.font = '700 30px "Noto Sans KR", sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillText('🔒 Weeve — 나도 비밀 코스 만들어보기', 60, H - 100);
+  ctx.font = '400 26px "Noto Sans KR", sans-serif';
+  ctx.fillStyle = 'rgba(58,46,42,.5)';
+  ctx.fillText('weeve.demo/waitlist.html', 60, H - 60);
+}
+
+/* 히어로 예시 카드 (데모 데이터) */
+async function renderHeroPreview() {
+  const demoPlaces = [
+    { name: '어니언 성수', src: DEMO_PHOTOS[0] },
+    { name: '성수연방', src: DEMO_PHOTOS[3] },
+    { name: '대림창고', src: DEMO_PHOTOS[4] },
+    { name: '인생네컷', src: DEMO_PHOTOS[5] },
+  ];
+  const withImgs = await Promise.all(demoPlaces.map(async p => ({ ...p, img: await loadImage(p.src) })));
+  await drawCard(document.getElementById('hero-canvas'), {
+    nickname: '지은이', station: '성수역', meetTime: '14:00', endTime: '21:00', places: withImgs,
+  });
+}
+renderHeroPreview();
+
+/* ══════════════════════════ 제출 처리 ══════════════════════════ */
+async function handleSubmit() {
+  const nickname = document.getElementById('f-nickname').value.trim();
+  const station = document.getElementById('f-station').value.trim();
+  const meetTime = document.getElementById('f-meet-time').value;
+  const endTime = document.getElementById('f-end-time').value;
+  const email = document.getElementById('f-email').value.trim();
+  const consent = document.getElementById('f-consent').checked;
+  const errEl = document.getElementById('form-error');
+  errEl.style.display = 'none';
+
+  const filled = places.filter(p => p.name.trim());
+  if (!nickname) return showError('닉네임을 입력해주세요.');
+  if (!station) return showError('만난 지하철역을 입력해주세요.');
+  if (filled.length === 0) return showError('장소를 최소 1개 이상 추가해주세요.');
+  if (!consent) return showError('개인정보 수집·이용에 동의해주세요.');
+
+  function showError(msg) { errEl.textContent = '⚠️ ' + msg; errEl.style.display = 'block'; }
+
+  const btn = document.getElementById('btn-submit');
+  btn.disabled = true; btn.textContent = '카드 만드는 중...';
+
+  // 카드 렌더링용 이미지 로드 (로컬 미리보기 또는 데모 이미지 — CORS 안전)
+  const cardPlaces = await Promise.all(filled.map(async (p, i) => {
+    const src = p.previewUrl || DEMO_PHOTOS[i % DEMO_PHOTOS.length];
+    let img = null;
+    try { img = await loadImage(src); } catch (e) { /* 이미지 로드 실패 시 무시 */ }
+    return { name: p.name.trim(), img };
+  }));
+
+  await drawCard(document.getElementById('card-canvas'), {
+    nickname, station, meetTime, endTime, places: cardPlaces,
+  });
+
+  document.getElementById('builder').style.display = 'none';
+  document.getElementById('result-section').style.display = 'block';
+  document.getElementById('result-section').scrollIntoView({ behavior: 'smooth' });
+
+  btn.disabled = false; btn.textContent = '🔒 비밀 코스 카드 만들기';
+
+  // Supabase 저장 (best-effort — 실패해도 카드는 이미 완성된 상태)
+  saveCourse({ nickname, station, meetTime, endTime, email, consent, places: filled }).catch(console.error);
+}
+
+async function saveCourse({ nickname, station, meetTime, endTime, email, consent, places }) {
+  const statusEl = document.getElementById('save-status');
+  if (!supabaseClient) {
+    statusEl.textContent = '⚡ 데모 모드 — Supabase 미연결 (config.js에 키를 넣으면 실제 저장됩니다)';
+    return;
+  }
+  statusEl.textContent = '저장 중...';
+
+  // 사진 업로드 (best-effort, 실패해도 계속 진행)
+  const uploadedPlaces = await Promise.all(places.map(async (p, i) => {
+    let photo_url = null;
+    if (p.file && supabaseClient) {
+      try {
+        const path = `${crypto.randomUUID()}-${i}.jpg`;
+        const { error } = await supabaseClient.storage.from('course-photos').upload(path, p.file);
+        if (!error) {
+          photo_url = supabaseClient.storage.from('course-photos').getPublicUrl(path).data.publicUrl;
+        }
+      } catch (e) { /* storage 미설정 시 조용히 건너뜀 */ }
+    }
+    return { order: i + 1, name: p.name.trim(), photo_url };
+  }));
+
+  const { error } = await supabaseClient.from('courses').insert({
+    nickname, subway_station: station, meet_time: meetTime, end_time: endTime,
+    places: uploadedPlaces, consent, waitlist_email: email || null, ...UTM,
+  });
+
+  if (error) {
+    statusEl.textContent = '❌ 저장 실패: ' + error.message;
+    return;
+  }
+  statusEl.textContent = '✅ 저장 완료!';
+
+  if (email) {
+    supabaseClient.from('waitlist').insert({
+      email, source: 'phase1_course', consent, ...UTM,
+    }).then(({ error }) => { if (error && error.code !== '23505') console.warn(error); });
+  }
+}
+
+/* ══════════════════════════ 다운로드 / 공유 ══════════════════════════ */
+function canvasToFile(canvas) {
+  return new Promise(resolve => canvas.toBlob(blob => resolve(new File([blob], 'weeve-course.png', { type: 'image/png' })), 'image/png'));
+}
+
+document.getElementById('btn-download').addEventListener('click', () => {
+  const canvas = document.getElementById('card-canvas');
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `weeve_비밀코스_${Date.now()}.png`;
+  a.click();
+  showToast('✅ 이미지를 다운로드했어요!');
+});
+
+document.getElementById('btn-share').addEventListener('click', async () => {
+  const canvas = document.getElementById('card-canvas');
+  const file = await canvasToFile(canvas);
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: 'Weeve 비밀 데이트코스', text: '나만의 비밀 데이트코스를 공유해요 🔒' });
+      showToast('✅ 공유했어요!');
+      return;
+    } catch (e) { /* 사용자가 취소한 경우 등 — 조용히 무시 */ }
+  }
+  // 공유 API 미지원 브라우저(대부분의 PC) → 다운로드로 대체 안내
+  document.getElementById('btn-download').click();
+  showToast('📱 모바일에서는 바로 공유돼요. PC에서는 다운로드 후 인스타에 올려주세요!');
+});
+
+document.getElementById('btn-again').addEventListener('click', () => {
+  document.getElementById('result-section').style.display = 'none';
+  document.getElementById('builder').style.display = 'block';
+  document.getElementById('builder').scrollIntoView({ behavior: 'smooth' });
+});
+
+/* ══════════════════════════ 초기화 ══════════════════════════ */
+document.getElementById('btn-add-place').addEventListener('click', addPlace);
+document.getElementById('btn-submit').addEventListener('click', handleSubmit);
+document.getElementById('consent-toggle-btn').addEventListener('click', () => {
+  document.getElementById('consent-detail').classList.toggle('show');
+});
+addPlace(); addPlace(); addPlace();
+</script>
+</body>
+</html>

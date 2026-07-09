@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Weeve | Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>window.APP_CONFIG = window.APP_CONFIG || {};</script>
+<script src="config.js" onerror="console.warn('config.js 없음')"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --rose: #FF5D7A; --rose-dark: #E23F5E; --rose-light: #FFE3EA;
+    --gold: #E8AA3D; --gold-light: #FFF3DC;
+    --gray-50: #faf8f7; --gray-100: #f3f1ef; --gray-200: #e8e3df;
+    --gray-400: #b3a89f; --gray-600: #6b5f58; --gray-800: #3A2E2A; --gray-900: #241c19;
+    --white: #ffffff;
+    --shadow: 0 4px 16px rgba(58,46,42,.08);
+    --radius: 14px; --radius-sm: 8px;
+  }
+  body { font-family: 'Noto Sans KR', sans-serif; background: var(--gray-50); color: var(--gray-800); }
+
+  /* LOGIN */
+  #login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, #FFF3E9, #FFE3EA); }
+  .login-card { background: var(--white); border-radius: 20px; padding: 48px 40px; width: 360px; box-shadow: 0 20px 60px rgba(58,46,42,.14); text-align: center; }
+  .login-logo { font-size: 40px; margin-bottom: 16px; }
+  .login-card h1 { font-size: 22px; font-weight: 800; margin-bottom: 6px; }
+  .login-card p { font-size: 14px; color: var(--gray-400); margin-bottom: 32px; }
+  .login-input { width: 100%; padding: 13px 16px; border-radius: var(--radius-sm); border: 1.5px solid var(--gray-200); font-family: inherit; font-size: 15px; outline: none; margin-bottom: 12px; text-align: center; letter-spacing: 2px; }
+  .login-input:focus { border-color: var(--rose); }
+  .login-btn { width: 100%; padding: 14px; border-radius: var(--radius-sm); background: var(--rose); color: white; border: none; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
+  .login-btn:hover { background: var(--rose-dark); }
+  .login-error { font-size: 13px; color: var(--rose-dark); margin-top: 10px; display: none; }
+
+  /* DASHBOARD */
+  #dashboard { display: none; }
+  header { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 0 28px; position: sticky; top: 0; z-index: 50; }
+  .header-inner { max-width: 1280px; margin: 0 auto; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .header-brand { display: flex; align-items: center; gap: 10px; }
+  .header-logo { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, var(--rose), var(--gold)); display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .header-title { font-size: 16px; font-weight: 700; }
+  .header-title span { color: var(--rose); }
+  .header-right { display: flex; align-items: center; gap: 12px; }
+  .badge-live { background: var(--rose-light); color: var(--rose-dark); font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
+  .btn-logout { background: var(--gray-100); color: var(--gray-600); border: none; border-radius: var(--radius-sm); padding: 7px 14px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-logout:hover { background: var(--gray-200); }
+
+  main { max-width: 1280px; margin: 0 auto; padding: 28px 24px; }
+
+  .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .tab-btn { background: var(--white); border: 1.5px solid var(--gray-200); border-radius: 99px; padding: 9px 20px; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--gray-600); cursor: pointer; }
+  .tab-btn.active { background: var(--rose); border-color: var(--rose); color: white; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+  .stat-card { background: var(--white); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow); border: 1px solid var(--gray-100); }
+  .stat-card-label { font-size: 12px; color: var(--gray-400); font-weight: 600; text-transform: uppercase; margin-bottom: 6px; }
+  .stat-card-value { font-size: 32px; font-weight: 900; color: var(--gray-900); line-height: 1; }
+  .stat-card-sub { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+  .stat-card.rose .stat-card-value { color: var(--rose-dark); }
+
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  .chart-card { background: var(--white); border-radius: var(--radius); padding: 20px 22px; box-shadow: var(--shadow); border: 1px solid var(--gray-100); }
+  .chart-card h3 { font-size: 14px; font-weight: 700; margin-bottom: 16px; color: var(--gray-600); }
+  .chart-wrap { position: relative; height: 220px; }
+
+  .toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; flex-wrap: wrap; gap: 10px; }
+  .toolbar h2 { font-size: 16px; font-weight: 700; }
+  .toolbar-right { display: flex; gap: 8px; }
+  .btn-csv { background: var(--rose); color: white; border: none; border-radius: var(--radius-sm); padding: 8px 16px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-csv:hover { background: var(--rose-dark); }
+  .btn-refresh { background: var(--gray-100); color: var(--gray-600); border: none; border-radius: var(--radius-sm); padding: 8px 14px; font-family: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .btn-refresh:hover { background: var(--gray-200); }
+
+  .table-wrap { background: var(--white); border-radius: var(--radius); box-shadow: var(--shadow); border: 1px solid var(--gray-100); overflow: hidden; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  thead { background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+  th { padding: 12px 16px; text-align: left; font-size: 11px; font-weight: 700; color: var(--gray-400); text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; }
+  td { padding: 13px 16px; font-size: 13px; border-bottom: 1px solid var(--gray-100); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--gray-50); }
+  .tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; margin: 2px; background: var(--rose-light); color: var(--rose-dark); }
+  .tag.gray { background: var(--gray-100); color: var(--gray-600); }
+  .btn-delete { background: none; border: 1px solid var(--gray-200); border-radius: 6px; padding: 4px 10px; font-size: 12px; color: var(--gray-400); cursor: pointer; font-family: inherit; }
+  .btn-delete:hover { border-color: var(--rose-dark); color: var(--rose-dark); background: var(--rose-light); }
+  .btn-expand { background: none; border: none; color: var(--rose-dark); font-size: 12px; font-weight: 700; cursor: pointer; font-family: inherit; text-decoration: underline; }
+  .places-detail { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 8px; }
+  .places-detail .ph { width: 64px; text-align: center; font-size: 10px; color: var(--gray-600); }
+  .places-detail .ph img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; display: block; margin-bottom: 4px; border: 1px solid var(--gray-200); }
+
+  .empty { text-align: center; padding: 60px 20px; color: var(--gray-400); }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .loading-row td { text-align: center; padding: 40px; color: var(--gray-400); font-size: 14px; }
+  .spin { display: inline-block; width: 20px; height: 20px; border: 2px solid var(--gray-200); border-top-color: var(--rose); border-radius: 50%; animation: spin .7s linear infinite; vertical-align: middle; margin-right: 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(60px); background: var(--gray-900); color: white; padding: 10px 20px; border-radius: 99px; font-size: 13px; font-weight: 600; transition: transform .3s; z-index: 999; white-space: nowrap; }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 900px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 600px) {
+    .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    main { padding: 16px 12px; }
+    th, td { padding: 10px 12px; }
+  }
+</style>
+</head>
+<body>
+
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🔐</div>
+    <h1>Admin 로그인</h1>
+    <p>Weeve 코스 데이터 대시보드</p>
+    <input type="password" class="login-input" id="pw-input" placeholder="비밀번호 입력" onkeydown="if(event.key==='Enter')doLogin()" />
+    <button class="login-btn" onclick="doLogin()">로그인</button>
+    <p class="login-error" id="login-error">❌ 비밀번호가 틀렸습니다.</p>
+  </div>
+</div>
+
+<div id="dashboard">
+  <header>
+    <div class="header-inner">
+      <div class="header-brand">
+        <div class="header-logo">🔒</div>
+        <div class="header-title">Weeve <span>Admin</span></div>
+      </div>
+      <div class="header-right">
+        <span class="badge-live" id="live-badge">● LIVE</span>
+        <button class="btn-logout" onclick="doLogout()">로그아웃</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="tabs">
+      <button class="tab-btn active" data-tab="courses" onclick="switchTab('courses')">🗺️ 코스 데이터</button>
+      <button class="tab-btn" data-tab="waitlist" onclick="switchTab('waitlist')">📮 대기자 리스트</button>
+    </div>
+
+    <!-- ── 코스 탭 ── -->
+    <div class="tab-panel active" id="tab-courses">
+      <div class="stats-row">
+        <div class="stat-card rose"><div class="stat-card-label">총 코스 수</div><div class="stat-card-value" id="c-stat-total">—</div><div class="stat-card-sub">누적 등록</div></div>
+        <div class="stat-card"><div class="stat-card-label">오늘 등록</div><div class="stat-card-value" id="c-stat-today">—</div><div class="stat-card-sub">최근 24시간</div></div>
+        <div class="stat-card"><div class="stat-card-label">평균 장소 수</div><div class="stat-card-value" id="c-stat-avgplaces">—</div><div class="stat-card-sub">코스당 방문 장소</div></div>
+        <div class="stat-card"><div class="stat-card-label">인기 지하철역</div><div class="stat-card-value" style="font-size:22px;margin-top:4px" id="c-stat-topstation">—</div><div class="stat-card-sub">가장 많이 만난 역</div></div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card"><h3>📍 지하철역 TOP 5</h3><div class="chart-wrap"><canvas id="chart-station"></canvas></div></div>
+        <div class="chart-card"><h3>📈 일별 등록 추이 (최근 14일)</h3><div class="chart-wrap"><canvas id="chart-daily"></canvas></div></div>
+      </div>
+      <div class="toolbar">
+        <h2>📋 코스 목록 <span id="c-count" style="font-size:13px;color:var(--gray-400);font-weight:500"></span></h2>
+        <div class="toolbar-right">
+          <button class="btn-refresh" onclick="loadCourses()">↻ 새로고침</button>
+          <button class="btn-csv" onclick="downloadCoursesCSV()">⬇ CSV 다운로드</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>등록일시</th><th>닉네임</th><th>지하철역</th><th>시간대</th><th>장소</th><th>유입경로</th><th></th></tr></thead>
+          <tbody id="courses-tbody"><tr class="loading-row"><td colspan="8"><span class="spin"></span>불러오는 중...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- ── 대기자 탭 ── -->
+    <div class="tab-panel" id="tab-waitlist">
+      <div class="stats-row">
+        <div class="stat-card rose"><div class="stat-card-label">총 대기자 수</div><div class="stat-card-value" id="w-stat-total">—</div><div class="stat-card-sub">누적 등록</div></div>
+        <div class="stat-card"><div class="stat-card-label">오늘 등록</div><div class="stat-card-value" id="w-stat-today">—</div><div class="stat-card-sub">최근 24시간</div></div>
+        <div class="stat-card"><div class="stat-card-label">코스 생성발 유입</div><div class="stat-card-value" id="w-stat-fromcourse">—</div><div class="stat-card-sub">phase1_course 비율</div></div>
+      </div>
+      <div class="toolbar">
+        <h2>📮 대기자 목록 <span id="w-count" style="font-size:13px;color:var(--gray-400);font-weight:500"></span></h2>
+        <div class="toolbar-right">
+          <button class="btn-refresh" onclick="loadWaitlist()">↻ 새로고침</button>
+          <button class="btn-csv" onclick="downloadWaitlistCSV()">⬇ CSV 다운로드</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>등록일시</th><th>이메일</th><th>유입경로</th><th></th></tr></thead>
+          <tbody id="waitlist-tbody"><tr class="loading-row"><td colspan="5"><span class="spin"></span>불러오는 중...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let coursesRows = [], waitlistRows = [];
+let adminPw = null;
+
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.dataset.tab === tab));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + tab).classList.add('active');
+}
+
+async function fetchResource(resource) {
+  const res = await fetch('/api/admin-data?resource=' + resource, { headers: { 'x-admin-password': adminPw } });
+  if (!res.ok) throw new Error((await res.json()).error);
+  return res.json();
+}
+
+async function doLogin() {
+  const pw = document.getElementById('pw-input').value.trim();
+  if (!pw) return;
+  const btn = document.querySelector('.login-btn');
+  btn.textContent = '확인 중...'; btn.disabled = true;
+  try {
+    const res = await fetch('/api/admin-data?resource=courses', { headers: { 'x-admin-password': pw } });
+    if (res.ok) {
+      adminPw = pw;
+      sessionStorage.setItem('weeve_admin_pw', pw);
+      showDashboard(true);
+    } else if (res.status === 404) {
+      // /api 라우트 자체가 없는 환경 (정적 서버로만 로컬 실행 중) → 데모 모드
+      adminPw = '__demo__';
+      showDashboard(false);
+    } else {
+      document.getElementById('login-error').style.display = 'block';
+      document.getElementById('pw-input').value = ''; document.getElementById('pw-input').focus();
+    }
+  } catch {
+    adminPw = '__demo__';
+    showDashboard(false);
+  } finally {
+    btn.textContent = '로그인'; btn.disabled = false;
+  }
+}
+
+function doLogout() {
+  sessionStorage.removeItem('weeve_admin_pw');
+  adminPw = null;
+  location.reload();
+}
+
+function showDashboard(live) {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('dashboard').style.display = 'block';
+  document.getElementById('live-badge').textContent = live ? '● LIVE' : '⚡ DEMO';
+  if (live) { loadCourses(); loadWaitlist(); }
+  else { renderDemoCourses(); renderDemoWaitlist(); }
+}
+
+(async () => {
+  const saved = sessionStorage.getItem('weeve_admin_pw');
+  if (!saved) return;
+  try {
+    const res = await fetch('/api/admin-data?resource=courses', { headers: { 'x-admin-password': saved } });
+    if (res.ok) { adminPw = saved; showDashboard(true); }
+    else if (res.status === 404) { adminPw = '__demo__'; showDashboard(false); }
+    else sessionStorage.removeItem('weeve_admin_pw');
+  } catch { adminPw = '__demo__'; showDashboard(false); }
+})();
+
+/* ── 코스 데이터 ── */
+async function loadCourses() {
+  if (adminPw === '__demo__') return renderDemoCourses();
+  document.getElementById('courses-tbody').innerHTML = '<tr class="loading-row"><td colspan="8"><span class="spin"></span>불러오는 중...</td></tr>';
+  try {
+    coursesRows = await fetchResource('courses');
+    renderCourses(coursesRows);
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+function renderCourses(rows) {
+  document.getElementById('c-count').textContent = `(${rows.length}건)`;
+  document.getElementById('c-stat-total').textContent = rows.length;
+  const dayAgo = Date.now() - 86400000;
+  document.getElementById('c-stat-today').textContent = rows.filter(r => new Date(r.created_at).getTime() > dayAgo).length;
+  const avgPlaces = rows.length ? (rows.reduce((s, r) => s + (r.places || []).length, 0) / rows.length).toFixed(1) : '—';
+  document.getElementById('c-stat-avgplaces').textContent = avgPlaces;
+
+  const stationCount = {};
+  rows.forEach(r => { if (r.subway_station) stationCount[r.subway_station] = (stationCount[r.subway_station] || 0) + 1; });
+  const topStations = Object.entries(stationCount).sort((a, b) => b[1] - a[1]);
+  document.getElementById('c-stat-topstation').textContent = topStations[0] ? topStations[0][0] : '—';
+
+  drawStationChart(topStations.slice(0, 5));
+  drawDailyChart(rows);
+
+  const tbody = document.getElementById('courses-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="8"><div class="empty"><div class="empty-icon">📭</div><p>아직 등록된 코스가 없습니다.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => `
+    <tr>
+      <td style="color:var(--gray-400);font-size:12px">${rows.length - i}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--gray-400)">${fmtDate(r.created_at)}</td>
+      <td><strong>${esc(r.nickname)}</strong></td>
+      <td>${esc(r.subway_station || '—')}</td>
+      <td style="white-space:nowrap;font-size:12px">${esc(r.meet_time || '?')} ~ ${esc(r.end_time || '?')}</td>
+      <td><button class="btn-expand" onclick="togglePlaces(this,'${r.id}')">${(r.places || []).length}곳 보기</button><div class="places-detail" id="places-${r.id}" style="display:none"></div></td>
+      <td>${r.utm_source ? `<span class="tag gray">${esc(r.utm_source)}</span>` : '—'}</td>
+      <td><button class="btn-delete" onclick="deleteRow('courses', '${r.id}')">삭제</button></td>
+    </tr>
+  `).join('');
+}
+
+function togglePlaces(btn, id) {
+  const row = coursesRows.find(r => r.id === id);
+  const el = document.getElementById('places-' + id);
+  const show = el.style.display === 'none';
+  el.style.display = show ? 'flex' : 'none';
+  if (show && !el.dataset.rendered) {
+    el.innerHTML = (row.places || []).map(p => `
+      <div class="ph">
+        <img src="${p.photo_url || 'assets/demo/place-cafe.svg'}" onerror="this.src='assets/demo/place-cafe.svg'" />
+        ${p.order || ''}. ${esc(p.name || '')}
+      </div>`).join('');
+    el.dataset.rendered = '1';
+  }
+}
+
+let chartStation, chartDaily;
+function drawStationChart(entries) {
+  if (chartStation) chartStation.destroy();
+  chartStation = new Chart(document.getElementById('chart-station'), {
+    type: 'bar',
+    data: { labels: entries.map(e => e[0]), datasets: [{ data: entries.map(e => e[1]), backgroundColor: '#FF5D7A', borderRadius: 6 }] },
+    options: { indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { beginAtZero: true, ticks: { stepSize: 1 } } } },
+  });
+}
+function drawDailyChart(rows) {
+  const days = [...Array(14)].map((_, i) => { const d = new Date(); d.setDate(d.getDate() - (13 - i)); return d; });
+  const counts = days.map(d => rows.filter(r => sameDay(new Date(r.created_at), d)).length);
+  if (chartDaily) chartDaily.destroy();
+  chartDaily = new Chart(document.getElementById('chart-daily'), {
+    type: 'bar',
+    data: { labels: days.map(d => `${d.getMonth()+1}/${d.getDate()}`), datasets: [{ data: counts, backgroundColor: '#E8AA3D', borderRadius: 6 }] },
+    options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } },
+  });
+}
+function sameDay(a, b) { return a.getFullYear()===b.getFullYear() && a.getMonth()===b.getMonth() && a.getDate()===b.getDate(); }
+
+function downloadCoursesCSV() {
+  if (!coursesRows.length) return showToast('다운로드할 데이터가 없습니다.');
+  const headers = ['id','등록일시','닉네임','지하철역','만난시각','헤어진시각','장소수','장소목록','utm_source','utm_medium','utm_campaign'];
+  const rows = coursesRows.map(r => [
+    r.id, fmtDate(r.created_at), r.nickname, r.subway_station || '', r.meet_time || '', r.end_time || '',
+    (r.places || []).length, (r.places || []).map(p => p.name).join(' > '),
+    r.utm_source || '', r.utm_medium || '', r.utm_campaign || '',
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  downloadCSV(headers, rows, `weeve_코스_${yyyymmdd()}.csv`);
+}
+
+/* ── 대기자 리스트 ── */
+async function loadWaitlist() {
+  if (adminPw === '__demo__') return renderDemoWaitlist();
+  document.getElementById('waitlist-tbody').innerHTML = '<tr class="loading-row"><td colspan="5"><span class="spin"></span>불러오는 중...</td></tr>';
+  try {
+    waitlistRows = await fetchResource('waitlist');
+    renderWaitlist(waitlistRows);
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+function renderWaitlist(rows) {
+  document.getElementById('w-count').textContent = `(${rows.length}건)`;
+  document.getElementById('w-stat-total').textContent = rows.length;
+  const dayAgo = Date.now() - 86400000;
+  document.getElementById('w-stat-today').textContent = rows.filter(r => new Date(r.created_at).getTime() > dayAgo).length;
+  const fromCourse = rows.filter(r => r.source === 'phase1_course').length;
+  document.getElementById('w-stat-fromcourse').textContent = rows.length ? Math.round(fromCourse / rows.length * 100) + '%' : '—';
+
+  const tbody = document.getElementById('waitlist-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty"><div class="empty-icon">📭</div><p>아직 대기자가 없습니다.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => `
+    <tr>
+      <td style="color:var(--gray-400);font-size:12px">${rows.length - i}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--gray-400)">${fmtDate(r.created_at)}</td>
+      <td><strong>${esc(r.email)}</strong></td>
+      <td><span class="tag gray">${esc(r.source || '—')}</span></td>
+      <td><button class="btn-delete" onclick="deleteRow('waitlist', '${r.id}')">삭제</button></td>
+    </tr>
+  `).join('');
+}
+
+function downloadWaitlistCSV() {
+  if (!waitlistRows.length) return showToast('다운로드할 데이터가 없습니다.');
+  const headers = ['id','등록일시','이메일','유입경로'];
+  const rows = waitlistRows.map(r => [r.id, fmtDate(r.created_at), r.email, r.source || ''].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  downloadCSV(headers, rows, `weeve_대기자_${yyyymmdd()}.csv`);
+}
+
+/* ── 공통 ── */
+async function deleteRow(resource, id) {
+  if (!confirm('이 항목을 삭제할까요?')) return;
+  if (adminPw && adminPw !== '__demo__') {
+    try {
+      const res = await fetch(`/api/admin-data?resource=${resource}&id=${id}`, { method: 'DELETE', headers: { 'x-admin-password': adminPw } });
+      if (!res.ok) return showToast('❌ ' + (await res.json()).error);
+    } catch (e) { return showToast('❌ ' + e.message); }
+  }
+  if (resource === 'courses') { coursesRows = coursesRows.filter(r => r.id !== id); renderCourses(coursesRows); }
+  else { waitlistRows = waitlistRows.filter(r => r.id !== id); renderWaitlist(waitlistRows); }
+  showToast('🗑️ 삭제됐습니다.');
+}
+
+function downloadCSV(headers, rows, filename) {
+  const bom = '﻿';
+  const csv = bom + [headers.join(','), ...rows].join('\r\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click();
+  URL.revokeObjectURL(url);
+  showToast('✅ CSV 다운로드 완료!');
+}
+
+/* ── 데모 데이터 ── */
+function renderDemoCourses() {
+  coursesRows = [
+    { id:'1', created_at: new Date().toISOString(), nickname:'수민이', subway_station:'성수역', meet_time:'14:00', end_time:'21:00',
+      places:[{order:1,name:'어니언 성수',photo_url:'assets/demo/place-cafe.svg'},{order:2,name:'성수연방',photo_url:'assets/demo/place-exhibit.svg'},{order:3,name:'대림창고',photo_url:'assets/demo/place-walk.svg'}],
+      utm_source:'instagram' },
+    { id:'2', created_at: new Date(Date.now()-86400000).toISOString(), nickname:'지은이', subway_station:'홍대입구역', meet_time:'13:00', end_time:'19:30',
+      places:[{order:1,name:'연남동 브런치',photo_url:'assets/demo/place-restaurant.svg'},{order:2,name:'인생네컷',photo_url:'assets/demo/place-photobooth.svg'}],
+      utm_source:'everytime' },
+    { id:'3', created_at: new Date(Date.now()-172800000).toISOString(), nickname:'하늘이', subway_station:'강남역', meet_time:'15:00', end_time:'22:00',
+      places:[{order:1,name:'가로수길 카페',photo_url:'assets/demo/place-cafe.svg'},{order:2,name:'디저트 카페',photo_url:'assets/demo/place-dessert.svg'},{order:3,name:'루프탑 바',photo_url:'assets/demo/place-restaurant.svg'},{order:4,name:'인생네컷',photo_url:'assets/demo/place-photobooth.svg'}],
+      utm_source:null },
+  ];
+  renderCourses(coursesRows);
+  showToast('⚡ Supabase 미연결 — 샘플 데이터로 시연 중');
+}
+function renderDemoWaitlist() {
+  waitlistRows = [
+    { id:'1', created_at: new Date().toISOString(), email:'suminlove@example.com', source:'phase1_course' },
+    { id:'2', created_at: new Date(Date.now()-86400000).toISOString(), email:'jieun.date@example.com', source:'phase1_course' },
+  ];
+  renderWaitlist(waitlistRows);
+}
+
+/* ── 유틸 ── */
+function fmtDate(iso) { if (!iso) return ''; const d = new Date(iso); return `${d.getFullYear()}.${p(d.getMonth()+1)}.${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; }
+function p(n) { return String(n).padStart(2,'0'); }
+function yyyymmdd() { const d = new Date(); return `${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}`; }
+function esc(s) { return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+let toastT;
+function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
+</script>
+</body>
+</html>

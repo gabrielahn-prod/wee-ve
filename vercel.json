@@ -1,0 +1,11 @@
+{
+  "buildCommand": "node build-config.js",
+  "outputDirectory": ".",
+  "framework": null,
+  "cleanUrls": true,
+  "routes": [
+    { "src": "/admin", "dest": "/admin.html" },
+    { "src": "/waitlist", "dest": "/waitlist.html" },
+    { "src": "/api/(.*)", "dest": "/api/$1" }
+  ]
+}
