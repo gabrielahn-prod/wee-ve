@@ -25,7 +25,7 @@ create table courses (
   subway_station   text,                       -- 만난 지하철역
   meet_time        text,                       -- "14:00"
   end_time         text,                       -- "21:00"
-  places           jsonb not null default '[]', -- [{order, name, photo_url}]
+  places           jsonb not null default '[]', -- [{order, name, photo_url, start_time, end_time}]
   consent          boolean not null default false, -- 개인정보 수집·이용 동의
   waitlist_email   text,                       -- 코스 생성 시 선택 입력한 이메일 (있으면 waitlist에도 저장)
   utm_source       text,
@@ -91,6 +91,10 @@ create policy "anyone view course photos"
 3. `admin.html`은 `/api/admin-data`를 호출하므로 로컬 정적 서버만으로는 실제 데이터를 불러오지 못하고
    자동으로 데모 모드로 표시됩니다. 실제 API까지 로컬에서 테스트하려면 `vercel dev`를 사용하세요
    (사전에 `.env`에 `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`, `ADMIN_PASSWORD`를 채워야 합니다).
+4. `index.html`도 카드 렌더링 직전에 `/api/translate`를 호출합니다(닉네임·역명·장소명을 한국어 →
+   영어로 변환). 정적 서버만으로는 이 호출이 실패하지만, 실패 시 번역 없이 한국어 원문으로 카드가
+   렌더링되므로 화면 흐름 확인엔 문제 없습니다. 실제 번역까지 로컬에서 보려면 `vercel dev`를 쓰세요
+   (별도 API 키 불필요).
 
 ## 3. Vercel 배포
 
@@ -107,10 +111,22 @@ create policy "anyone view course photos"
 ## 4. 지금 범위 / 다음 단계
 
 - ✅ Phase 1: 코스 입력 → 카드 생성(다운로드/공유) → Supabase 저장 → admin 대시보드 조회
-- 🎨 카드 디자인은 임시 템플릿입니다. 디자이너가 스토리 템플릿 최종본을 넘기면
-  `drawCard()` (index.html 내 canvas 렌더링 함수)만 교체하면 됩니다.
+- ✅ 카드 디자인은 디자이너가 넘긴 콜라주 템플릿(지금은 4컷/6컷 두 종류만 전달됨)으로 교체
+  완료 (`drawCard()`, `index.html` 내 canvas 렌더링 함수). "동의 & 완료" 단계의 카드 스타일
+  토글로 4컷/6컷을 고르면 그 개수만큼 앞 순서 장소가 카드에 들어가고, 모자라면 데모 사진으로
+  채워집니다. 장소 입력 자체는 최대 8개까지 가능(추가 디자인 받으면 확장 여지를 남겨둔 것).
+  `drawCard()`가 쓰는 `computeGridRects()`는 임의 개수(1~n)를 2열 그리드로 배치할 수 있는
+  범용 함수라, 이후 다른 컷 수 디자인을 받으면 토글에 옵션만 추가하면 됩니다.
+  다운로드/공유 버튼 위치·스타일은 디자인 확정 전이라 임시 배치입니다.
+- 🌐 카드에 표시되는 닉네임/역명/장소명은 `api/translate.js`가 [MyMemory Translation
+  API](https://mymemory.translated.net/doc/spec.php)(무료, 키 불필요)로 한국어 → 영어 변환합니다.
+  DB에는 항상 한국어 원문이 저장되고, 번역은 카드 렌더링 시에만 일어나는 best-effort 처리입니다
+  (실패 시 한국어 원문으로 렌더링). 무료 API라 일일 호출량 제한이 있어, 트래픽이 커지면 유료 번역
+  API(Google Cloud Translation, DeepL 등)로 교체를 고려하세요.
 - 📷 장소 사진을 올리지 않으면 `assets/demo/` 의 데모 이미지로 자동 대체됩니다. 실제 서비스에서는
   사용자가 업로드한 사진이 Supabase Storage(`course-photos` 버킷)에 저장됩니다.
+- 🖼️ 로고는 아직 임시(Pacifico 폰트 텍스트)입니다. 실제 로고 파일(SVG/투명 PNG)을
+  `assets/logo-weeve.png` 등으로 받으면 nav의 `.logo-text`를 `<img>`로 교체하면 됩니다.
 - ⏭️ Phase 2(앱 사전예약 랜딩 페이지, 이메일 수집)는 별도로 진행 예정입니다. 다만 Phase 1 폼에서
   이메일을 선택 입력하면 이미 `waitlist` 테이블에 `source: 'phase1_course'`로 저장되어, admin
   대시보드의 "대기자 리스트" 탭에서 바로 확인할 수 있습니다.
