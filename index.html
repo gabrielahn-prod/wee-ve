@@ -41,7 +41,7 @@
   nav { position: sticky; top: 0; z-index: 100; background: rgba(255,255,255,.92); backdrop-filter: blur(10px); box-shadow: 0 2px 3px rgba(0,0,0,.05); padding: 0 20px; }
   .nav-inner { max-width: 1040px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; height: 62px; }
   .logo { display: flex; align-items: center; text-decoration: none; flex-shrink: 0; }
-  .logo img { height: 26px; width: 48px; display: block; }
+  .logo img { height: 39px; width: 72px; display: block; }
   .nav-link { flex-shrink: 0; font-size: 13px; font-weight: 600; color: var(--white); text-decoration: none; padding: 9px 16px; border-radius: 99px; background: var(--rose); white-space: nowrap; }
 
   /* ── HERO ── */
@@ -52,8 +52,11 @@
   .hero p { font-size: 15.5px; color: var(--ink-soft); margin-bottom: 26px; max-width: 460px; }
   .btn-cta { display: inline-flex; align-items: center; gap: 8px; background: var(--rose); color: white; border: none; padding: 15px 26px; border-radius: 99px; font-family: inherit; font-size: 15.5px; font-weight: 600; cursor: pointer; box-shadow: var(--shadow); transition: transform .15s, box-shadow .15s; text-decoration: none; }
   .btn-cta:hover { transform: translateY(-2px); box-shadow: var(--shadow-lg); }
-  .hero-preview { display: flex; justify-content: center; }
-  .hero-preview canvas { width: 100%; max-width: 280px; border-radius: 22px; box-shadow: var(--shadow-lg); }
+  .hero-preview { position: relative; width: 100%; max-width: 320px; aspect-ratio: 393 / 294; margin: 0 auto; }
+  .hero-phone { position: absolute; border: 3px solid white; border-radius: 10px; overflow: hidden; box-shadow: 2px 4px 16px rgba(33,37,37,.18); }
+  .hero-phone canvas { display: block; width: 100%; height: auto; }
+  .hero-phone-a { left: 31.04%; top: 1.53%; width: 33.66%; transform: rotate(7.14deg); z-index: 2; }
+  .hero-phone-b { left: 63.33%; top: 33.6%; width: 30.12%; transform: rotate(-5.27deg); z-index: 1; }
 
   /* ── SECTION SHELL ── */
   section.block { max-width: 720px; margin: 0 auto; padding: 20px 20px 60px; }
@@ -70,6 +73,12 @@
   }
   input::placeholder { color: var(--gray-placeholder); }
   input:focus { border-color: var(--rose); }
+  select {
+    width: 100%; height: 40px; padding: 10px 32px 10px 10px; border-radius: var(--radius-sm); border: 1px solid var(--gray-200);
+    font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: var(--white) url('assets/icons/icon-chevron-down.svg') no-repeat right 12px center;
+    background-size: 13px 13px; appearance: none; -webkit-appearance: none; cursor: pointer; outline: none;
+  }
+  select:focus { border-color: var(--rose); }
   .hint { font-size: 12px; color: var(--gray-placeholder); margin-top: 5px; }
 
   /* place cards */
@@ -137,6 +146,16 @@
     .hero-preview { order: -1; }
     .field-row { grid-template-columns: 1fr; }
   }
+
+  /* ── 앱 출시 알림 모달 ── */
+  .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(33,37,37,.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+  .modal-overlay.show { display: flex; }
+  .modal-card { background: var(--white); border-radius: var(--radius); padding: 28px 24px; max-width: 340px; width: 100%; position: relative; box-shadow: var(--shadow-lg); }
+  .modal-close { position: absolute; top: 16px; right: 16px; background: none; border: none; cursor: pointer; padding: 4px; }
+  .modal-close img { width: 12px; height: 12px; }
+  .modal-desc { font-size: 13px; color: var(--ink-soft); margin-bottom: 18px; line-height: 1.6; }
+  .modal-card .field { margin-bottom: 14px; }
+  .modal-card .consent-row { margin-bottom: 18px; }
 </style>
 </head>
 <body>
@@ -146,7 +165,7 @@
     <a class="logo" href="/">
       <img src="assets/icons/nav-logo.svg" alt="Weeve" />
     </a>
-    <a class="nav-link" href="waitlist.html">앱 출시 알림 받기</a>
+    <a class="nav-link" href="waitlist.html" id="btn-nav-waitlist">앱 출시 알림 받기</a>
   </div>
 </nav>
 
@@ -158,7 +177,8 @@
     <a class="btn-cta" href="#builder"><img class="icon" src="assets/icons/icon-lock.svg" width="15" height="15" alt="" /> 내 비밀 코스 만들기</a>
   </div>
   <div class="hero-preview">
-    <canvas id="hero-canvas" width="1080" height="1920"></canvas>
+    <div class="hero-phone hero-phone-a"><canvas id="hero-canvas-a" width="1080" height="1920"></canvas></div>
+    <div class="hero-phone hero-phone-b"><canvas id="hero-canvas-b" width="1080" height="1920"></canvas></div>
   </div>
 </div>
 
@@ -182,11 +202,11 @@
     <div class="field-row">
       <div class="field">
         <label class="field-label">만난 시각</label>
-        <input type="time" id="f-meet-time" value="14:00" />
+        <select id="f-meet-time"></select>
       </div>
       <div class="field">
         <label class="field-label">헤어진 시각</label>
-        <input type="time" id="f-end-time" value="21:00" />
+        <select id="f-end-time"></select>
       </div>
     </div>
   </div>
@@ -239,8 +259,26 @@
 
 <footer>
   <div class="footer-brand"><img class="footer-mark" src="assets/icons/footer-mark.svg" alt="" /><span><strong>Wee've</strong> — 광고 없는 솔직한 데이트 코스 기록</span></div>
-  <div style="margin-top:8px;">앱 출시가 궁금하다면 <a href="waitlist.html">사전예약 페이지</a>에서 미리 알림을 받아보세요.</div>
+  <div style="margin-top:8px;">앱 출시가 궁금하다면 <a href="waitlist.html" id="btn-footer-waitlist">사전예약 페이지</a>에서 미리 알림을 받아보세요.</div>
 </footer>
+
+<div class="modal-overlay" id="waitlist-overlay">
+  <div class="modal-card">
+    <button class="modal-close" id="waitlist-close" type="button"><img src="assets/icons/icon-x.svg" alt="닫기" /></button>
+    <div class="step-label"><img class="icon" src="assets/icons/icon-sparkle.svg" width="12" height="12" alt="" /> 앱 출시 알림 받기</div>
+    <p class="modal-desc">이메일을 남겨주시면 Weeve 앱 출시 소식을 가장 먼저 알려드려요.</p>
+    <div class="field">
+      <input type="email" id="waitlist-email" placeholder="you@gmail.com" />
+    </div>
+    <label class="consent-row">
+      <input type="checkbox" id="waitlist-consent" />
+      <span>(필수) 개인정보 수집·이용에 동의합니다.</span>
+    </label>
+    <button class="btn-submit" id="waitlist-submit" type="button" style="width:100%;">알림 받기</button>
+    <p class="form-error" id="waitlist-error"></p>
+    <p class="save-status" id="waitlist-status"></p>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -277,6 +315,18 @@ function addHour(t, h) {
   let total = Math.min(hh * 60 + mm + h * 60, 23 * 60 + 59);
   const nh = Math.floor(total / 60), nm = total % 60;
   return `${String(nh).padStart(2, '0')}:${String(nm).padStart(2, '0')}`;
+}
+
+/* 30분 단위 시각 옵션 (버튼/드롭다운 스타일 select에 사용) */
+function timeOptionsHtml(selected) {
+  let html = '';
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 30) {
+      const v = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      html += `<option value="${v}"${v === selected ? ' selected' : ''}>${v}</option>`;
+    }
+  }
+  return html;
 }
 
 function addPlace() {
@@ -318,11 +368,11 @@ function renderPlaces() {
       <div class="place-time-row">
         <label class="place-time-field">
           <span>시작</span>
-          <input type="time" value="${p.startTime}" onchange="places[${i}].startTime = this.value" />
+          <select onchange="places[${i}].startTime = this.value">${timeOptionsHtml(p.startTime)}</select>
         </label>
         <label class="place-time-field">
           <span>종료</span>
-          <input type="time" value="${p.endTime}" onchange="places[${i}].endTime = this.value" />
+          <select onchange="places[${i}].endTime = this.value">${timeOptionsHtml(p.endTime)}</select>
         </label>
       </div>
     </div>
@@ -558,9 +608,15 @@ async function drawCard(canvas, data) {
   ctx.textAlign = 'left';
 }
 
-/* 히어로 예시 카드 (데모 데이터 — 이미 영어로 하드코딩, 번역 호출 없음) */
+/* 히어로 예시 카드 — Figma 목업처럼 4컷/6컷 두 장을 기울여서 겹쳐 보여줌 (데모 데이터, 번역 호출 없음) */
 async function renderHeroPreview() {
-  const demo = [
+  const demo4 = [
+    { name: 'Han river park', src: DEMO_PHOTOS[0], startTime: '14:00', endTime: '15:00' },
+    { name: 'Hotel', src: DEMO_PHOTOS[1], startTime: '15:00', endTime: '16:00' },
+    { name: 'star bakery', src: DEMO_PHOTOS[4], startTime: '14:00', endTime: '15:00' },
+    { name: 'naru shabu', src: DEMO_PHOTOS[5], startTime: '14:00', endTime: '15:00' },
+  ];
+  const demo6 = [
     { name: 'Han river park', src: DEMO_PHOTOS[0], startTime: '14:00', endTime: '15:00' },
     { name: 'Hotel', src: DEMO_PHOTOS[1], startTime: '15:00', endTime: '16:00' },
     { name: 'Flower garden', src: DEMO_PHOTOS[2], startTime: '16:00', endTime: '17:00' },
@@ -568,12 +624,18 @@ async function renderHeroPreview() {
     { name: 'star bakery', src: DEMO_PHOTOS[4], startTime: '14:00', endTime: '15:00' },
     { name: 'naru shabu', src: DEMO_PHOTOS[5], startTime: '14:00', endTime: '15:00' },
   ];
-  const withImgs = await Promise.all(demo.map(async p => ({ ...p, img: await loadImage(p.src) })));
-  await drawCard(document.getElementById('hero-canvas'), {
-    nickname: 'Dami', station: 'Seongsu station', places: withImgs,
-  });
+  const [imgs4, imgs6] = await Promise.all([
+    Promise.all(demo4.map(async p => ({ ...p, img: await loadImage(p.src) }))),
+    Promise.all(demo6.map(async p => ({ ...p, img: await loadImage(p.src) }))),
+  ]);
+  await drawCard(document.getElementById('hero-canvas-a'), { nickname: 'Sumin', station: 'Hongdae station', places: imgs4 });
+  await drawCard(document.getElementById('hero-canvas-b'), { nickname: 'Dami', station: 'Seongsu station', places: imgs6 });
 }
 renderHeroPreview();
+
+/* 만난/헤어진 시각 select 초기화 (버튼식 드롭다운) */
+document.getElementById('f-meet-time').innerHTML = timeOptionsHtml('14:00');
+document.getElementById('f-end-time').innerHTML = timeOptionsHtml('21:00');
 
 /* ══════════════════════════ 제출 처리 ══════════════════════════ */
 async function handleSubmit() {
@@ -708,6 +770,57 @@ document.getElementById('btn-again').addEventListener('click', () => {
   document.getElementById('result-section').style.display = 'none';
   document.getElementById('builder').style.display = 'block';
   document.getElementById('builder').scrollIntoView({ behavior: 'smooth' });
+});
+
+/* ══════════════════════════ 앱 출시 알림(이메일 수집) 모달 ══════════════════════════ */
+function openWaitlistModal() {
+  document.getElementById('waitlist-overlay').classList.add('show');
+}
+function closeWaitlistModal() {
+  document.getElementById('waitlist-overlay').classList.remove('show');
+}
+[document.getElementById('btn-nav-waitlist'), document.getElementById('btn-footer-waitlist')].forEach(el => {
+  el.addEventListener('click', (e) => { e.preventDefault(); openWaitlistModal(); });
+});
+document.getElementById('waitlist-close').addEventListener('click', closeWaitlistModal);
+document.getElementById('waitlist-overlay').addEventListener('click', (e) => {
+  if (e.target.id === 'waitlist-overlay') closeWaitlistModal();
+});
+
+document.getElementById('waitlist-submit').addEventListener('click', async () => {
+  const email = document.getElementById('waitlist-email').value.trim();
+  const consent = document.getElementById('waitlist-consent').checked;
+  const errEl = document.getElementById('waitlist-error');
+  const statusEl = document.getElementById('waitlist-status');
+  errEl.style.display = 'none';
+  statusEl.textContent = '';
+
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    errEl.textContent = '⚠️ 올바른 이메일을 입력해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+  if (!consent) {
+    errEl.textContent = '⚠️ 개인정보 수집·이용에 동의해주세요.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  if (!supabaseClient) {
+    statusEl.textContent = '⚡ 데모 모드 — Supabase 미연결 (config.js에 키를 넣으면 실제 저장됩니다)';
+    return;
+  }
+  statusEl.textContent = '저장 중...';
+  const { error } = await supabaseClient.from('waitlist').insert({
+    email, source: 'phase1_nav', consent, ...UTM,
+  });
+  if (error && error.code !== '23505') {
+    statusEl.textContent = '❌ 저장 실패: ' + error.message;
+    return;
+  }
+  statusEl.textContent = '✅ 알림 신청 완료! 출시하면 가장 먼저 알려드릴게요.';
+  showToast('✅ 이메일이 등록됐어요!');
+  setTimeout(closeWaitlistModal, 1200);
 });
 
 /* ══════════════════════════ 초기화 ══════════════════════════ */
