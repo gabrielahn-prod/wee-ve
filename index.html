@@ -133,7 +133,8 @@
 
   footer { text-align: center; padding: 40px 20px 60px; color: var(--ink-soft); font-size: 12px; }
   footer a { color: var(--rose); font-weight: 700; text-decoration: none; }
-  .footer-brand { display: inline-flex; align-items: center; gap: 8px; }
+  .footer-brand { display: inline-flex; align-items: center; gap: 8px; border: none; background: none; padding: 0; font: inherit; color: inherit; cursor: pointer; transition: opacity .1s; }
+  .footer-brand:active { opacity: .55; }
   .footer-mark { width: 26px; height: 26px; }
   .footer-brand strong { color: var(--ink-soft); font-weight: 600; }
 
@@ -258,7 +259,7 @@
 </section>
 
 <footer>
-  <div class="footer-brand"><img class="footer-mark" src="assets/icons/footer-mark.svg" alt="" /><span><strong>Wee've</strong> — 광고 없는 솔직한 데이트 코스 기록</span></div>
+  <button type="button" class="footer-brand" id="btn-footer-brand"><img class="footer-mark" src="assets/icons/footer-mark.svg" alt="" /><span><strong>Weeve</strong> — 광고 없는 솔직한 데이트 코스 기록</span></button>
   <div style="margin-top:8px;">앱 출시가 궁금하다면 <a href="waitlist.html" id="btn-footer-waitlist">사전예약 페이지</a>에서 미리 알림을 받아보세요.</div>
 </footer>
 
@@ -770,6 +771,13 @@ document.getElementById('btn-again').addEventListener('click', () => {
   document.getElementById('result-section').style.display = 'none';
   document.getElementById('builder').style.display = 'block';
   document.getElementById('builder').scrollIntoView({ behavior: 'smooth' });
+});
+
+/* footer의 "Wee've" 브랜드 버튼 — 카드가 완성된 화면(사진 출력 화면)에 있을 때 누르면 코스 작성 화면으로 되돌아감 */
+document.getElementById('btn-footer-brand').addEventListener('click', () => {
+  if (document.getElementById('result-section').style.display !== 'none') {
+    document.getElementById('btn-again').click();
+  }
 });
 
 /* ══════════════════════════ 앱 출시 알림(이메일 수집) 모달 ══════════════════════════ */
