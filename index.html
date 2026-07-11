@@ -300,6 +300,30 @@ const DEMO_PHOTOS = [
 ];
 const MAX_PLACES = 8;
 
+/* ══════════════════════════ 기기별 임시저장 (localStorage) ══════════════════════════ */
+/* 사진 파일은 저장 용량 문제로 제외 — 닉네임/역/시각/장소명만 보존. 새로고침·재방문해도 남아있음 */
+const DRAFT_KEY = 'weeve_draft_v1';
+
+function saveDraft() {
+  try {
+    const draft = {
+      nickname: document.getElementById('f-nickname').value,
+      station: document.getElementById('f-station').value,
+      meetTime: document.getElementById('f-meet-time').value,
+      endTime: document.getElementById('f-end-time').value,
+      places: places.map(p => ({ name: p.name, startTime: p.startTime, endTime: p.endTime })),
+    };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+  } catch (e) { /* 프라이빗 모드 등으로 localStorage를 못 쓰는 경우 — 조용히 무시 */ }
+}
+
+function loadDraft() {
+  try {
+    const raw = localStorage.getItem(DRAFT_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+
 /* UTM 캡처 */
 const urlParams = new URLSearchParams(location.search);
 const UTM = {
@@ -362,18 +386,18 @@ function renderPlaces() {
         </div>
         <div class="place-fields">
           <input type="text" placeholder="장소명 (예: 성수가옥)" value="${esc(p.name)}"
-            oninput="places[${i}].name = this.value" maxlength="20" />
+            oninput="places[${i}].name = this.value; saveDraft();" maxlength="20" />
           <p class="hint">사진을 미업로드시 데모 이미지로 대체돼요</p>
         </div>
       </div>
       <div class="place-time-row">
         <label class="place-time-field">
           <span>시작</span>
-          <select onchange="places[${i}].startTime = this.value">${timeOptionsHtml(p.startTime)}</select>
+          <select onchange="places[${i}].startTime = this.value; saveDraft();">${timeOptionsHtml(p.startTime)}</select>
         </label>
         <label class="place-time-field">
           <span>종료</span>
-          <select onchange="places[${i}].endTime = this.value">${timeOptionsHtml(p.endTime)}</select>
+          <select onchange="places[${i}].endTime = this.value; saveDraft();">${timeOptionsHtml(p.endTime)}</select>
         </label>
       </div>
     </div>
@@ -381,6 +405,7 @@ function renderPlaces() {
   document.getElementById('btn-add-place').disabled = places.length >= MAX_PLACES;
   document.getElementById('place-count-hint').textContent =
     `${places.length}/${MAX_PLACES}개 장소 - 카드에 순서대로 표시돼요`;
+  saveDraft();
 }
 
 function onPlacePhoto(idx, file) {
@@ -629,9 +654,6 @@ async function renderHeroPreview() {
 }
 renderHeroPreview();
 
-/* 만난/헤어진 시각 select 초기화 (버튼식 드롭다운) */
-document.getElementById('f-meet-time').innerHTML = timeOptionsHtml('14:00');
-document.getElementById('f-end-time').innerHTML = timeOptionsHtml('21:00');
 
 /* ══════════════════════════ 제출 처리 ══════════════════════════ */
 async function handleSubmit() {
@@ -832,7 +854,30 @@ document.getElementById('btn-submit').addEventListener('click', handleSubmit);
 document.getElementById('consent-toggle-btn').addEventListener('click', () => {
   document.getElementById('consent-detail').classList.toggle('show');
 });
-addPlace(); addPlace(); addPlace();
+document.getElementById('f-nickname').addEventListener('input', saveDraft);
+document.getElementById('f-station').addEventListener('input', saveDraft);
+document.getElementById('f-meet-time').addEventListener('change', saveDraft);
+document.getElementById('f-end-time').addEventListener('change', saveDraft);
+
+/* 기기별 임시저장 복원: 이전에 남겨둔 내용이 있으면 그대로 불러오고, 없으면 기본값으로 시작 */
+const draft = loadDraft();
+if (draft) {
+  document.getElementById('f-nickname').value = draft.nickname || '';
+  document.getElementById('f-station').value = draft.station || '';
+  document.getElementById('f-meet-time').innerHTML = timeOptionsHtml(draft.meetTime || '14:00');
+  document.getElementById('f-end-time').innerHTML = timeOptionsHtml(draft.endTime || '21:00');
+  if (Array.isArray(draft.places) && draft.places.length > 0) {
+    places = draft.places.map(p => ({ name: p.name || '', file: null, previewUrl: null, img: null, startTime: p.startTime, endTime: p.endTime }));
+    renderPlaces();
+    showToast('📝 이전에 작성하던 내용을 불러왔어요');
+  } else {
+    addPlace(); addPlace(); addPlace();
+  }
+} else {
+  document.getElementById('f-meet-time').innerHTML = timeOptionsHtml('14:00');
+  document.getElementById('f-end-time').innerHTML = timeOptionsHtml('21:00');
+  addPlace(); addPlace(); addPlace();
+}
 </script>
 </body>
 </html>
