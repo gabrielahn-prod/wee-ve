@@ -585,7 +585,7 @@ async function drawCard(canvas, data) {
     }
   });
 
-  // 중앙 타이틀 블록: "Welcome to {닉네임}'s" / DATE COURSE 로고 이미지 / "with wee-ve.com in {역}"
+  // 중앙 타이틀 블록: "Welcome to {닉네임}'s" / DATE COURSE 로고 이미지 / "in {역}" (wee-ve.com 텍스트 언급은 삭제됨)
   const titleY = layout.titleY;
   ctx.textAlign = 'center';
   ctx.fillStyle = '#fff';
@@ -594,19 +594,28 @@ async function drawCard(canvas, data) {
 
   if (logoImg) ctx.drawImage(logoImg, W / 2 - LOGO_W / 2, titleY + 52, LOGO_W, LOGO_H);
 
-  const lineY = titleY + 52 + LOGO_H;
-  const withText = 'with ', linkText = 'wee-ve.com', afterText = data.station ? ` in ${data.station}` : '';
+  if (data.station) {
+    const lineY = titleY + 52 + LOGO_H;
+    ctx.textAlign = 'center';
+    ctx.fillStyle = '#fff';
+    ctx.font = '400 32px "Crimson Text", serif';
+    ctx.fillText(`in ${data.station}`, W / 2, lineY);
+    ctx.textAlign = 'left';
+  }
+
+  // "링크" 배지 — 실제로 클릭되진 않지만 인스타 링크 스티커 자리 표시용, 모든 컷 공통 고정 위치
+  const badge = { x: 742, y: 1772, w: 272.11, h: 85.47 };
+  ctx.fillStyle = 'rgba(217,217,217,0.6)';
+  ctx.beginPath();
+  ctx.roundRect(badge.x, badge.y, badge.w, badge.h, 10);
+  ctx.fill();
+  ctx.fillStyle = '#000';
   ctx.font = '400 32px "Crimson Text", serif';
-  const totalW = ctx.measureText(withText).width + ctx.measureText(linkText).width + ctx.measureText(afterText).width;
-  let sx = W / 2 - totalW / 2;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('링크', badge.x + badge.w / 2, badge.y + badge.h / 2);
   ctx.textAlign = 'left';
-  ctx.fillStyle = '#fff';
-  ctx.fillText(withText, sx, lineY); sx += ctx.measureText(withText).width;
-  ctx.fillStyle = '#ff4c77';
-  ctx.fillText(linkText, sx, lineY); sx += ctx.measureText(linkText).width;
-  ctx.fillStyle = '#fff';
-  ctx.fillText(afterText, sx, lineY);
-  ctx.textAlign = 'left';
+  ctx.textBaseline = 'alphabetic';
 }
 
 /* 히어로 예시 카드 — Figma 목업처럼 4컷/6컷 두 장을 기울여서 겹쳐 보여줌 (데모 데이터, 번역 호출 없음) */
