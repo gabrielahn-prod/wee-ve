@@ -3,6 +3,7 @@ const { createClient } = require('@supabase/supabase-js');
 const TABLES = {
   courses: 'courses',
   waitlist: 'waitlist',
+  survey: 'survey_responses',
 };
 
 function supabase() {
@@ -29,7 +30,7 @@ module.exports = async function handler(req, res) {
 
   const table = TABLES[req.query.resource];
   if (!table) {
-    return res.status(400).json({ error: 'resource 파라미터가 필요합니다 (courses | waitlist)' });
+    return res.status(400).json({ error: 'resource 파라미터가 필요합니다 (courses | waitlist | survey)' });
   }
 
   const sb = supabase();

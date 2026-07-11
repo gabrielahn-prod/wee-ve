@@ -142,6 +142,7 @@
     <div class="tabs">
       <button class="tab-btn active" data-tab="courses" onclick="switchTab('courses')">🗺️ 코스 데이터</button>
       <button class="tab-btn" data-tab="waitlist" onclick="switchTab('waitlist')">📮 대기자 리스트</button>
+      <button class="tab-btn" data-tab="survey" onclick="switchTab('survey')">📊 설문 응답</button>
     </div>
 
     <!-- ── 코스 탭 ── -->
@@ -192,13 +193,36 @@
         </table>
       </div>
     </div>
+
+    <!-- ── 설문 응답 탭 ── -->
+    <div class="tab-panel" id="tab-survey">
+      <div class="stats-row">
+        <div class="stat-card rose"><div class="stat-card-label">총 응답 수</div><div class="stat-card-value" id="s-stat-total">—</div><div class="stat-card-sub">누적 응답</div></div>
+        <div class="stat-card"><div class="stat-card-label">오늘 응답</div><div class="stat-card-value" id="s-stat-today">—</div><div class="stat-card-sub">최근 24시간</div></div>
+        <div class="stat-card"><div class="stat-card-label">연락처 남김</div><div class="stat-card-value" id="s-stat-contact">—</div><div class="stat-card-sub">추첨 참여 의향</div></div>
+        <div class="stat-card"><div class="stat-card-label">내비게이션 긍정 응답</div><div class="stat-card-value" id="s-stat-navpositive">—</div><div class="stat-card-sub">'있다'+'매우 있다'</div></div>
+      </div>
+      <div class="toolbar">
+        <h2>📊 설문 목록 <span id="s-count" style="font-size:13px;color:var(--gray-400);font-weight:500"></span></h2>
+        <div class="toolbar-right">
+          <button class="btn-refresh" onclick="loadSurvey()">↻ 새로고침</button>
+          <button class="btn-csv" onclick="downloadSurveyCSV()">⬇ CSV 다운로드</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>#</th><th>등록일시</th><th>연애경험</th><th>고민포인트</th><th>소요시간</th><th>내비게이션 의향</th><th>공유 의향</th><th>예약 의향</th><th>연락처</th><th></th></tr></thead>
+          <tbody id="survey-tbody"><tr class="loading-row"><td colspan="10"><span class="spin"></span>불러오는 중...</td></tr></tbody>
+        </table>
+      </div>
+    </div>
   </main>
 </div>
 
 <div class="toast" id="toast"></div>
 
 <script>
-let coursesRows = [], waitlistRows = [];
+let coursesRows = [], waitlistRows = [], surveyRows = [];
 let adminPw = null;
 
 function switchTab(tab) {
@@ -250,8 +274,8 @@ function showDashboard(live) {
   document.getElementById('login-screen').style.display = 'none';
   document.getElementById('dashboard').style.display = 'block';
   document.getElementById('live-badge').textContent = live ? '● LIVE' : '⚡ DEMO';
-  if (live) { loadCourses(); loadWaitlist(); }
-  else { renderDemoCourses(); renderDemoWaitlist(); }
+  if (live) { loadCourses(); loadWaitlist(); loadSurvey(); }
+  else { renderDemoCourses(); renderDemoWaitlist(); renderDemoSurvey(); }
 }
 
 (async () => {
@@ -398,6 +422,58 @@ function downloadWaitlistCSV() {
   downloadCSV(headers, rows, `weeve_대기자_${yyyymmdd()}.csv`);
 }
 
+/* ── 설문 응답 ── */
+async function loadSurvey() {
+  if (adminPw === '__demo__') return renderDemoSurvey();
+  document.getElementById('survey-tbody').innerHTML = '<tr class="loading-row"><td colspan="10"><span class="spin"></span>불러오는 중...</td></tr>';
+  try {
+    surveyRows = await fetchResource('survey');
+    renderSurveyTable(surveyRows);
+  } catch (e) { showToast('❌ ' + e.message); }
+}
+
+function renderSurveyTable(rows) {
+  document.getElementById('s-count').textContent = `(${rows.length}건)`;
+  document.getElementById('s-stat-total').textContent = rows.length;
+  const dayAgo = Date.now() - 86400000;
+  document.getElementById('s-stat-today').textContent = rows.filter(r => new Date(r.created_at).getTime() > dayAgo).length;
+  const withContact = rows.filter(r => r.contact).length;
+  document.getElementById('s-stat-contact').textContent = rows.length ? Math.round(withContact / rows.length * 100) + '%' : '—';
+  const navPositive = rows.filter(r => r.q4_navigation_interest === '있다' || r.q4_navigation_interest === '매우 있다').length;
+  document.getElementById('s-stat-navpositive').textContent = rows.length ? Math.round(navPositive / rows.length * 100) + '%' : '—';
+
+  const tbody = document.getElementById('survey-tbody');
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="10"><div class="empty"><div class="empty-icon">📭</div><p>아직 설문 응답이 없습니다.</p></div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r, i) => `
+    <tr>
+      <td style="color:var(--gray-400);font-size:12px">${rows.length - i}</td>
+      <td style="white-space:nowrap;font-size:12px;color:var(--gray-400)">${fmtDate(r.created_at)}</td>
+      <td>${esc(r.q1_dating_status || '—')}</td>
+      <td>${(r.q2_pain_points || []).map(p => `<span class="tag">${esc(p)}</span>`).join('') || '—'}</td>
+      <td>${esc(r.q3_planning_time || '—')}</td>
+      <td>${esc(r.q4_navigation_interest || '—')}</td>
+      <td>${esc(r.q5_share_intent || '—')}</td>
+      <td>${esc(r.q6_booking_interest || '—')}</td>
+      <td>${r.contact ? esc(r.contact) : '<span class="tag gray">미기재</span>'}</td>
+      <td><button class="btn-delete" onclick="deleteRow('survey', '${r.id}')">삭제</button></td>
+    </tr>
+  `).join('');
+}
+
+function downloadSurveyCSV() {
+  if (!surveyRows.length) return showToast('다운로드할 데이터가 없습니다.');
+  const headers = ['id','등록일시','연애경험','고민포인트','소요시간','내비게이션의향','공유의향','예약의향','연락처','동의여부'];
+  const rows = surveyRows.map(r => [
+    r.id, fmtDate(r.created_at), r.q1_dating_status || '', (r.q2_pain_points || []).join(' / '),
+    r.q3_planning_time || '', r.q4_navigation_interest || '', r.q5_share_intent || '', r.q6_booking_interest || '',
+    r.contact || '', r.consent ? 'Y' : 'N',
+  ].map(v => `"${String(v).replace(/"/g,'""')}"`).join(','));
+  downloadCSV(headers, rows, `weeve_설문_${yyyymmdd()}.csv`);
+}
+
 /* ── 공통 ── */
 async function deleteRow(resource, id) {
   if (!confirm('이 항목을 삭제할까요?')) return;
@@ -408,7 +484,8 @@ async function deleteRow(resource, id) {
     } catch (e) { return showToast('❌ ' + e.message); }
   }
   if (resource === 'courses') { coursesRows = coursesRows.filter(r => r.id !== id); renderCourses(coursesRows); }
-  else { waitlistRows = waitlistRows.filter(r => r.id !== id); renderWaitlist(waitlistRows); }
+  else if (resource === 'waitlist') { waitlistRows = waitlistRows.filter(r => r.id !== id); renderWaitlist(waitlistRows); }
+  else { surveyRows = surveyRows.filter(r => r.id !== id); renderSurveyTable(surveyRows); }
   showToast('🗑️ 삭제됐습니다.');
 }
 
@@ -444,6 +521,19 @@ function renderDemoWaitlist() {
     { id:'2', created_at: new Date(Date.now()-86400000).toISOString(), email:'jieun.date@example.com', source:'phase1_course' },
   ];
   renderWaitlist(waitlistRows);
+}
+function renderDemoSurvey() {
+  surveyRows = [
+    { id:'1', created_at: new Date().toISOString(), q1_dating_status:'예',
+      q2_pain_points:['맛집, 카페, 액티비티 간의 이동 동선과 시간 계산하는 것','인스타그램이나 블로그의 광고성 피드를 거르는 것'],
+      q3_planning_time:'20분 이상 30분 미만', q4_navigation_interest:'매우 있다', q5_share_intent:'예, 바로 공유하거나 저장할 것 같다',
+      q6_booking_interest:'예, 예약 스트레스가 줄어든다면 적극 이용할 것 같다', contact:'suminlove@example.com', consent:true },
+    { id:'2', created_at: new Date(Date.now()-86400000).toISOString(), q1_dating_status:'아니오',
+      q2_pain_points:['매번 가던 곳(홍대, 강남 등) 외에 새로운 장소를 찾는 것'],
+      q3_planning_time:'10분 이상 20분 미만', q4_navigation_interest:'있다', q5_share_intent:'보기만 하고 굳이 공유하진 않을 것 같다',
+      q6_booking_interest:'코스에 따라 다를 것 같다', contact:null, consent:false },
+  ];
+  renderSurveyTable(surveyRows);
 }
 
 /* ── 유틸 ── */

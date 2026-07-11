@@ -4,7 +4,7 @@
 수집하고, 인스타 스토리용 카드를 만들어 바이럴을 일으키는 것이 목표입니다.
 
 - `index.html` — 코스 입력 폼 + 스토리 카드 생성/다운로드/공유 (메인 서비스)
-- `admin.html` — 비밀번호로 보호된 관리자 대시보드 (`/admin`) — 코스 데이터·대기자 리스트 조회
+- `admin.html` — 비밀번호로 보호된 관리자 대시보드 (`/admin`) — 코스 데이터·대기자 리스트·설문 응답 조회
 - `api/admin-data.js` — Vercel 서버리스 함수. `service_role` 키로 Supabase에 접근하며 admin.html에서만 호출
 - `config.js` — Supabase 접속 정보 (gitignore 처리됨, 절대 커밋 금지)
 
@@ -56,6 +56,28 @@ alter table waitlist enable row level security;
 create policy "public_insert_waitlist"
   on waitlist for insert to anon with check (true);
 
+-- ── 설문 응답 (결과 화면 선택 설문조사) ──────────────────────────
+create table survey_responses (
+  id                      uuid primary key default gen_random_uuid(),
+  created_at              timestamptz default now(),
+  q1_dating_status        text,       -- '예' | '아니오'
+  q2_pain_points          jsonb,      -- ['...', '...'] (최대 2개 선택)
+  q3_planning_time        text,
+  q4_navigation_interest  text,
+  q5_share_intent         text,
+  q6_booking_interest     text,
+  contact                 text,       -- 인스타 핸들 또는 이메일 (선택)
+  consent                 boolean not null default false,
+  utm_source              text,
+  utm_medium              text,
+  utm_campaign            text
+);
+
+alter table survey_responses enable row level security;
+
+create policy "public_insert_survey_responses"
+  on survey_responses for insert to anon with check (true);
+
 -- ── 장소 사진 저장용 Storage ──────────────────────────────────
 insert into storage.buckets (id, name, public)
   values ('course-photos', 'course-photos', true)
@@ -70,7 +92,7 @@ create policy "anyone view course photos"
   using (bucket_id = 'course-photos');
 ```
 
-> `courses`/`waitlist` 모두 anon 키로는 **INSERT만** 가능하고 SELECT/DELETE는 막혀 있습니다.
+> `courses`/`waitlist`/`survey_responses` 모두 anon 키로는 **INSERT만** 가능하고 SELECT/DELETE는 막혀 있습니다.
 > 관리자 조회·삭제는 `api/admin-data.js`가 `service_role` 키로 서버에서만 수행합니다 — 절대 프론트엔드에
 > service_role 키를 노출하지 마세요.
 
