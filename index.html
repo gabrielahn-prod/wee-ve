@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Weeve | 나만의 비밀 데이트코스 공유하기</title>
 <meta name="description" content="우리만 아는 데이트 코스를 예쁜 카드로 만들어 인스타 스토리에 공유해보세요." />
+<meta property="og:type" content="website" />
+<meta property="og:title" content="Weeve | 나만의 비밀 데이트코스 공유하기" />
+<meta property="og:description" content="우리만 아는 데이트 코스를 예쁜 카드로 만들어 인스타 스토리에 공유해보세요." />
+<meta property="og:url" content="https://wee-ve.com/" />
+<meta property="og:image" content="https://wee-ve.com/assets/og-image.jpg" />
+<meta property="og:image:width" content="1200" />
+<meta property="og:image:height" content="630" />
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content="Weeve | 나만의 비밀 데이트코스 공유하기" />
+<meta name="twitter:description" content="우리만 아는 데이트 코스를 예쁜 카드로 만들어 인스타 스토리에 공유해보세요." />
+<meta name="twitter:image" content="https://wee-ve.com/assets/og-image.jpg" />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link href="https://fonts.googleapis.com/css2?family=Crimson+Text:wght@400;600&display=swap" rel="stylesheet" />
 <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
@@ -80,6 +91,25 @@
   }
   select:focus { border-color: var(--rose); }
   .hint { font-size: 12px; color: var(--gray-placeholder); margin-top: 5px; }
+
+  /* 시간 선택 커스텀 드롭다운 (네이티브 select는 값 저장용으로 숨겨두고, 목록은 짧게 스크롤되도록 직접 그림) */
+  .time-select { position: relative; }
+  .time-select-native { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+  .time-select-trigger {
+    width: 100%; height: 40px; padding: 10px 32px 10px 10px; border-radius: var(--radius-sm); border: 1px solid var(--gray-200);
+    font-family: inherit; font-size: 13px; font-weight: 500; color: var(--ink); background: var(--white) url('assets/icons/icon-chevron-down.svg') no-repeat right 12px center;
+    background-size: 13px 13px; cursor: pointer; outline: none; text-align: left; transition: border-color .15s;
+  }
+  .time-select.open .time-select-trigger { border-color: var(--rose); }
+  .time-select-panel {
+    display: none; position: absolute; z-index: 20; top: calc(100% + 6px); left: 0; right: 0;
+    max-height: 184px; overflow-y: auto; margin: 0; padding: 4px; list-style: none;
+    background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius-sm); box-shadow: var(--shadow);
+  }
+  .time-select.open .time-select-panel { display: block; }
+  .time-select-option { padding: 8px 10px; font-size: 13px; font-weight: 500; color: var(--ink); border-radius: 6px; cursor: pointer; }
+  .time-select-option:hover { background: var(--gray-100); }
+  .time-select-option.selected { background: var(--rose-light); color: var(--rose); font-weight: 700; }
 
   /* place cards */
   .place-card { background: linear-gradient(180deg, #FFFBFC, #FFF5F7); border: 1px solid var(--gray-200); border-radius: var(--radius-sm); padding: 10px 12px 12px; margin-bottom: 12px; }
@@ -157,6 +187,9 @@
     .hero h1 { font-size: 30px; }
     .hero-preview { order: -1; }
     .field-row { grid-template-columns: 1fr; }
+    /* iOS Safari는 포커스된 입력 요소의 font-size가 16px 미만이면 화면을 자동으로 확대함 */
+    input[type=text], input[type=email], input[type=time], select { font-size: 16px; }
+    .place-fields input { font-size: 16px; }
   }
 
   /* ── 앱 출시 알림 모달 ── */
@@ -214,11 +247,19 @@
     <div class="field-row">
       <div class="field">
         <label class="field-label">만난 시각</label>
-        <select id="f-meet-time"></select>
+        <div class="time-select" data-native="f-meet-time">
+          <select id="f-meet-time" class="time-select-native" tabindex="-1"></select>
+          <button type="button" class="time-select-trigger"></button>
+          <ul class="time-select-panel"></ul>
+        </div>
       </div>
       <div class="field">
         <label class="field-label">헤어진 시각</label>
-        <select id="f-end-time"></select>
+        <div class="time-select" data-native="f-end-time">
+          <select id="f-end-time" class="time-select-native" tabindex="-1"></select>
+          <button type="button" class="time-select-trigger"></button>
+          <ul class="time-select-panel"></ul>
+        </div>
       </div>
     </div>
   </div>
@@ -372,16 +413,61 @@ function addHour(t, h) {
 }
 
 /* 30분 단위 시각 옵션 (버튼/드롭다운 스타일 select에 사용) */
-function timeOptionsHtml(selected) {
-  let html = '';
+const TIME_SLOTS = (() => {
+  const slots = [];
   for (let h = 0; h < 24; h++) {
-    for (let m = 0; m < 60; m += 30) {
-      const v = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      html += `<option value="${v}"${v === selected ? ' selected' : ''}>${v}</option>`;
-    }
+    for (let m = 0; m < 60; m += 30) slots.push(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`);
   }
-  return html;
+  return slots;
+})();
+
+function timeOptionsHtml(selected) {
+  return TIME_SLOTS.map(v => `<option value="${v}"${v === selected ? ' selected' : ''}>${v}</option>`).join('');
 }
+
+function timePanelHtml(selected) {
+  return TIME_SLOTS.map(v => `<li class="time-select-option${v === selected ? ' selected' : ''}" data-value="${v}">${v}</li>`).join('');
+}
+
+/* 커스텀 시간 드롭다운: data-native가 있으면 숨은 select와 값 동기화, 없으면 data-idx/data-field로 places 배열을 직접 갱신 */
+function syncTimeSelectUI(wrap) {
+  const select = wrap.querySelector('select');
+  wrap.querySelector('.time-select-trigger').textContent = select.value;
+  wrap.querySelector('.time-select-panel').innerHTML = timePanelHtml(select.value);
+}
+
+document.addEventListener('click', (e) => {
+  const trigger = e.target.closest('.time-select-trigger');
+  if (trigger) {
+    e.stopPropagation();
+    const wrap = trigger.closest('.time-select');
+    const wasOpen = wrap.classList.contains('open');
+    document.querySelectorAll('.time-select.open').forEach(w => w.classList.remove('open'));
+    if (!wasOpen) {
+      wrap.classList.add('open');
+      wrap.querySelector('.time-select-option.selected')?.scrollIntoView({ block: 'center' });
+    }
+    return;
+  }
+  const option = e.target.closest('.time-select-option');
+  if (option) {
+    const wrap = option.closest('.time-select');
+    const nativeId = wrap.dataset.native;
+    if (nativeId) {
+      const select = document.getElementById(nativeId);
+      select.value = option.dataset.value;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      syncTimeSelectUI(wrap);
+    } else {
+      places[Number(wrap.dataset.idx)][wrap.dataset.field] = option.dataset.value;
+      saveDraft();
+      renderPlaces();
+    }
+    wrap.classList.remove('open');
+    return;
+  }
+  document.querySelectorAll('.time-select.open').forEach(w => w.classList.remove('open'));
+});
 
 function addPlace() {
   if (places.length >= MAX_PLACES) return;
@@ -422,11 +508,17 @@ function renderPlaces() {
       <div class="place-time-row">
         <label class="place-time-field">
           <span>시작</span>
-          <select onchange="places[${i}].startTime = this.value; saveDraft();">${timeOptionsHtml(p.startTime)}</select>
+          <div class="time-select" data-idx="${i}" data-field="startTime">
+            <button type="button" class="time-select-trigger">${p.startTime}</button>
+            <ul class="time-select-panel">${timePanelHtml(p.startTime)}</ul>
+          </div>
         </label>
         <label class="place-time-field">
           <span>종료</span>
-          <select onchange="places[${i}].endTime = this.value; saveDraft();">${timeOptionsHtml(p.endTime)}</select>
+          <div class="time-select" data-idx="${i}" data-field="endTime">
+            <button type="button" class="time-select-trigger">${p.endTime}</button>
+            <ul class="time-select-panel">${timePanelHtml(p.endTime)}</ul>
+          </div>
         </label>
       </div>
     </div>
@@ -1030,13 +1122,19 @@ document.getElementById('f-station').addEventListener('input', saveDraft);
 document.getElementById('f-meet-time').addEventListener('change', saveDraft);
 document.getElementById('f-end-time').addEventListener('change', saveDraft);
 
+function initTimeSelect(id, value) {
+  const select = document.getElementById(id);
+  select.innerHTML = timeOptionsHtml(value);
+  syncTimeSelectUI(select.closest('.time-select'));
+}
+
 /* 기기별 임시저장 복원: 이전에 남겨둔 내용이 있으면 그대로 불러오고, 없으면 기본값으로 시작 */
 const draft = loadDraft();
 if (draft) {
   document.getElementById('f-nickname').value = draft.nickname || '';
   document.getElementById('f-station').value = draft.station || '';
-  document.getElementById('f-meet-time').innerHTML = timeOptionsHtml(draft.meetTime || '14:00');
-  document.getElementById('f-end-time').innerHTML = timeOptionsHtml(draft.endTime || '21:00');
+  initTimeSelect('f-meet-time', draft.meetTime || '14:00');
+  initTimeSelect('f-end-time', draft.endTime || '21:00');
   if (Array.isArray(draft.places) && draft.places.length > 0) {
     places = draft.places.map(p => ({ name: p.name || '', file: null, previewUrl: null, img: null, startTime: p.startTime, endTime: p.endTime }));
     renderPlaces();
@@ -1045,8 +1143,8 @@ if (draft) {
     addPlace(); addPlace(); addPlace();
   }
 } else {
-  document.getElementById('f-meet-time').innerHTML = timeOptionsHtml('14:00');
-  document.getElementById('f-end-time').innerHTML = timeOptionsHtml('21:00');
+  initTimeSelect('f-meet-time', '14:00');
+  initTimeSelect('f-end-time', '21:00');
   addPlace(); addPlace(); addPlace();
 }
 </script>
