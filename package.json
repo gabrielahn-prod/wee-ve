@@ -2,6 +2,9 @@
   "name": "weeve-demo",
   "version": "1.0.0",
   "private": true,
+  "scripts": {
+    "dev": "node server.js"
+  },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0"
   }

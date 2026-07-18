@@ -116,7 +116,7 @@ create policy "anyone view course photos"
 4. `index.html`도 카드 렌더링 직전에 `/api/translate`를 호출합니다(닉네임·역명·장소명을 한국어 →
    영어로 변환). 정적 서버만으로는 이 호출이 실패하지만, 실패 시 번역 없이 한국어 원문으로 카드가
    렌더링되므로 화면 흐름 확인엔 문제 없습니다. 실제 번역까지 로컬에서 보려면 `vercel dev`를 쓰세요
-   (별도 API 키 불필요).
+   (`X-NCP-APIGW-API-KEY-ID`, `X-NCP-APIGW-API-KEY` 환경 변수가 필요합니다.)
 
 ## 3. Vercel 배포
 
@@ -126,6 +126,8 @@ create policy "anyone view course photos"
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_KEY`
    - `ADMIN_PASSWORD`
+   - `X-NCP-APIGW-API-KEY-ID`
+   - `X-NCP-APIGW-API-KEY`
 3. 배포 시 `build-config.js`가 `SUPABASE_URL`/`SUPABASE_ANON_KEY`만 골라 `config.js`를 자동 생성합니다
    (service key·admin 비밀번호는 절대 클라이언트 번들에 포함되지 않고 `api/` 서버 코드에서만 `process.env`로 읽힙니다).
 4. 배포 후 `/admin` 경로로 접속하면 `ADMIN_PASSWORD`로 로그인해 대시보드를 볼 수 있습니다.
@@ -141,11 +143,11 @@ create policy "anyone view course photos"
   "DATE COURSE" 큰 글자는 실제로는 라이브 텍스트가 아니라 Figma가 내보낸 이미지 에셋이라
   `assets/cards/logo-datecourse.png`로 받아서 `drawImage()`로 그립니다. 다운로드/공유 버튼
   위치·스타일은 디자인 확정 전이라 임시 배치입니다.
-- 🌐 카드에 표시되는 닉네임/역명/장소명은 `api/translate.js`가 [MyMemory Translation
-  API](https://mymemory.translated.net/doc/spec.php)(무료, 키 불필요)로 한국어 → 영어 변환합니다.
+- 🌐 카드에 표시되는 닉네임/역명/장소명은 `api/translate.js`가 [NAVER Papago NMT
+  API](https://developers.naver.com/docs/papago/)로 한국어 → 영어 변환합니다.
   DB에는 항상 한국어 원문이 저장되고, 번역은 카드 렌더링 시에만 일어나는 best-effort 처리입니다
-  (실패 시 한국어 원문으로 렌더링). 무료 API라 일일 호출량 제한이 있어, 트래픽이 커지면 유료 번역
-  API(Google Cloud Translation, DeepL 등)로 교체를 고려하세요.
+  (실패 시 한국어 원문으로 렌더링). Papago API 키는 Vercel 환경 변수에만 등록하고 클라이언트에는
+  절대 포함하지 않습니다.
 - 📷 장소 사진을 올리지 않으면 `assets/demo/` 의 데모 이미지로 자동 대체됩니다. 실제 서비스에서는
   사용자가 업로드한 사진이 Supabase Storage(`course-photos` 버킷)에 저장됩니다.
 - 🖼️ 로고는 아직 임시(Pacifico 폰트 텍스트)입니다. 실제 로고 파일(SVG/투명 PNG)을

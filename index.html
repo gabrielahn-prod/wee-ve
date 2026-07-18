@@ -566,7 +566,7 @@ function formatTime12h(t) {
 }
 
 /* ══════════════════════════ 번역 (한국어 → 영어, 카드 렌더링 전용) ══════════════════════════ */
-/* /api/translate 는 MyMemory API를 무료로 프록시함. 실패 시 원문 그대로 사용 (best-effort) */
+/* /api/translate 는 NAVER Papago API를 프록시함. 실패 시 원문 그대로 사용 (best-effort) */
 async function translateTexts(strings) {
   const res = await fetch('/api/translate', {
     method: 'POST',
