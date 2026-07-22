@@ -116,7 +116,7 @@ create policy "anyone view course photos"
 4. `index.html`도 카드 렌더링 직전에 `/api/translate`를 호출합니다(닉네임·역명·장소명을 한국어 →
    영어로 변환). 정적 서버만으로는 이 호출이 실패하지만, 실패 시 번역 없이 한국어 원문으로 카드가
    렌더링되므로 화면 흐름 확인엔 문제 없습니다. 실제 번역까지 로컬에서 보려면 `vercel dev`를 쓰세요
-   (`X-NCP-APIGW-API-KEY-ID`, `X-NCP-APIGW-API-KEY` 환경 변수가 필요합니다.)
+   (`X_NCP_APIGW_API_KEY_ID`, `X_NCP_APIGW_API_KEY` 환경 변수가 필요합니다.)
 
 ## 3. Vercel 배포
 
@@ -126,8 +126,8 @@ create policy "anyone view course photos"
    - `SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_KEY`
    - `ADMIN_PASSWORD`
-   - `X-NCP-APIGW-API-KEY-ID`
-   - `X-NCP-APIGW-API-KEY`
+   - `X_NCP_APIGW_API_KEY_ID`
+   - `X_NCP_APIGW_API_KEY`
 3. 배포 시 `build-config.js`가 `SUPABASE_URL`/`SUPABASE_ANON_KEY`만 골라 `config.js`를 자동 생성합니다
    (service key·admin 비밀번호는 절대 클라이언트 번들에 포함되지 않고 `api/` 서버 코드에서만 `process.env`로 읽힙니다).
 4. 배포 후 `/admin` 경로로 접속하면 `ADMIN_PASSWORD`로 로그인해 대시보드를 볼 수 있습니다.

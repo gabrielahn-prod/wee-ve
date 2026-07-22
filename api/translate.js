@@ -32,8 +32,8 @@ async function translateOne(raw) {
   if (!text) return '';
   // Vercel에는 NCP API Gateway 변수명을 권장하지만, 기존 로컬 설정의
   // PAPAGO_CLIENT_* 이름도 허용해 배포/로컬 환경 모두에서 동작하게 한다.
-  const clientId = process.env['X-NCP-APIGW-API-KEY-ID'] || process.env.PAPAGO_CLIENT_ID;
-  const clientSecret = process.env['X-NCP-APIGW-API-KEY'] || process.env.PAPAGO_CLIENT_SECRET;
+  const clientId = process.env.X_NCP_APIGW_API_KEY_ID || process.env.PAPAGO_CLIENT_ID;
+  const clientSecret = process.env.X_NCP_APIGW_API_KEY || process.env.PAPAGO_CLIENT_SECRET;
   if (!clientId || !clientSecret) {
     throw new Error('Papago API credentials are not configured');
   }
